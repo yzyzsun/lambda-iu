@@ -1,0 +1,92 @@
+\documentclass{article}
+
+\usepackage{amsmath,amssymb}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{multicol}
+\usepackage{ottalt}
+\usepackage{pdflscape}
+\usepackage{xcolor}
+\usepackage{xspace}
+
+\inputott{ott}
+
+\newcommand\source{\textsc{Uaena}\xspace}
+\newcommand\target{$\lambda_\mathsf{iu}$\xspace}
+
+\title{Named Arguments as Intersections,\\ Optional Arguments as Unions}
+\author{Yaozhu Sun}
+
+\begin{document}
+
+\maketitle
+\bigskip
+
+\section*{Syntax of \target (target)}
+\begin{align*}
+  &\text{Types}          &[[A]],[[B]] ::=&~ [[Top]] ~|~ [[Bot]] ~|~ [[Null]] ~|~ [[Int]] ~|~ [[A -> B]] ~|~ [[{l : A}]] ~|~ [[A & B]] ~|~ [[A | B]] \\
+  &\text{Expressions}    &      [[e]] ::=&~ [[{}]] ~|~ [[null]] ~|~ [[int]] ~|~ [[x]] ~|~ [[\x:A. e:B]] ~|~ [[e1 e2]] ~|~ [[{l = e}]] ~|~ [[e.l]] ~|~ [[e1 ,, e2]] ~|~ \\
+  &                      &                     &~ [[switch e0 as x case A => e1 case B => e2]] ~|~ [[let x = e1 in e2]] \\ % Add fixpoint?
+\end{align*}
+
+\section*{Syntax of \source\footnote{\source = Unnamed Arguments Encoded Named Arguments} (source)}
+\nonterms{styp,nptyp,sexp,npexp,narg}
+
+\section*{From \source to \target}
+\ottdefnsSource
+
+\newtheorem{theorem}{Theorem}
+\begin{theorem}[Elaboration soundness]
+  If $[[Gs |- t : As ~~> e]]$ and $[[||As|| = A]]$, then $[[G |- e : A]]$.
+\end{theorem}
+
+\newpage
+\begin{landscape}
+\newtheorem{example}{Example}
+\begin{example}
+\begin{mathpar}
+[[letin1]] = [[ let x = z.x in ]]
+
+[[letin2]] = [[ let y = switch z.y as y case Int => y case Null => 0 in ]] \,
+
+[[e0]] = [[letin1 letin2]]\ [[(x+y)]]
+
+\inferrule*[Right=Ela-NPAbs]
+{ [[ [], y:Int, x:Int |- x + y : Int ~~> x + y ]] \\
+  \inferrule*[Right=PEla-Required]
+  { \inferrule*[Right=PEla-Optional]
+    { [[ [] |- 0 : Int ~~> 0 ]] \\
+      \inferrule*[Right=PEla-Empty]{ }{[[ []; z |- [] : [] ~~> id -| [] ]]}
+    }
+    {[[ []; z |- (y=0; []) : (y?:Int; []) ~~> letin2 -| [], y:Int ]]}
+  }
+  {[[ []; z |- (x:Int; y=0; []) : (x:Int; y?:Int; []) ~~> letin1 letin2 -| [], y:Int, x:Int ]]}
+}
+{[[ [] |- (\{x:Int; y=0; []}. x+y) : {x:Int; y?:Int; []} -> Int
+   ~~> \z: {x:Int}&{y:Int|Null} . e0 : Int ]]}
+
+\inferrule*[Right=Ela-NApp]
+{ \cdots\textsc{Ela-NAbs}\cdots \\
+  \inferrule*[Right=PMat-Present]
+  {[[ [] |- 1 : Int ~~> 1 ]] \\
+   \inferrule*[Right=PMat-Absent]
+   {\inferrule*[Right=PMat-Extra]
+    {[[ [] |- 2 : Int ~~> 2 ]] \\
+     \inferrule*[Right=PMat-Empty]{ }{[[ [] |- [] <> [] ~~> {} ]]}}
+    {[[ [] |- [] <> (z=2; []) ~~> {z=2} ]]}
+   }
+   {[[ [] |- (y?:Int; []) <> (z=2; []) ~~> {y=null},,{z=2} ]]}
+  }
+  {[[ [] |- (x:Int; y?:Int; []) <> (x=1; z=2; []) ~~> {x=1},,{y=null},,{z=2} ]]}
+}
+{[[ [] |- (\{x:Int; y=0; []}. x+y) {x=1; z=2; []} : Int
+   ~~> (\z: {x:Int}&{y:Int|Null}. e0: Int) ({x=1},,{y=null},,{z=2}) ]]}
+\end{mathpar}
+\end{example}
+\end{landscape}
+
+\section*{Appendix: Semantics of \target}
+\ottdefnsStatics
+\ottdefnsDynamics
+
+\end{document}

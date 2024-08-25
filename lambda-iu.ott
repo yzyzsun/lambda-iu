@@ -1,0 +1,539 @@
+embed
+{{ tex-preamble
+\usepackage{bbold}
+\DeclareSymbolFont{bbsymbol}{U}{bbold}{m}{n}
+\DeclareMathSymbol{\bbcomma}{\mathbin}{bbsymbol}{"2C}
+}}
+
+indexvar index, i, j, n, m ::= {{ coq nat }}
+metavar var, x, y, z, l {{ tex \ell }} ::=  {{ repr-locally-nameless }} {{ com variable/label }}
+
+grammar
+
+% target calculus
+
+typ, A, B, C :: 't_' ::= {{ com types }}
+  | Top        ::  :: top    {{ com top type }} {{ tex \top }}
+  | Bot        ::  :: bot    {{ com bottom type }} {{ tex \bot }}
+  | Null       ::  :: null   {{ com null type }}
+  | Int        ::  :: int    {{ com integer type }} {{ tex \mathbb{Z} }}
+  | A -> B     ::  :: arrow  {{ com function type }}
+  | { l : A }  ::  :: rcd    {{ com record type }}
+  | A & B      ::  :: and    {{ com intersection type }}
+  | A | B      ::  :: or     {{ com union type }}
+  | ( A )      :: S:: paren  {{ coq ([[A]]) }}
+
+exp, e :: 'e_' ::= {{ com expressions }}
+  | {}               ::  :: top    {{ com top value }}
+  | null             ::  :: null   {{ com null value }}
+  | int              ::  :: int    {{ com integer literal }} {{ tex n }}
+  | x                ::  :: var    {{ com variable }}
+  | \ x : A . e : B  ::  :: abs    {{ com abstraction }} {{ tex [[\]][[x]]\!:\![[A]].\;[[e]]\!:\![[B]] }}
+  | e1 e2            ::  :: app    {{ com application }}
+  | { l = e }        ::  :: rcd    {{ com record }}
+  | e . l            ::  :: prj    {{ com projection }}
+  | e1 ,, e2         ::  :: merge  {{ com merging }}
+  | switch e0 as x case A => e1 case B => e2
+                     ::  :: switch {{ com type switch }}
+  | e : A            ::  :: anno   {{ com annotation }}
+  | letin e          ::  :: letin
+  | [ e1 / x ] e2    :: M:: subst  {{ coq (open_exp_wrt_exp[[x e2]][[e1]]) }}
+  | ( e )            :: S:: paren  {{ coq ([[e]]) }}
+  | 0                :: S:: zero   {{ coq }}
+  | 1                :: S:: one    {{ coq }}
+  | 2                :: S:: two    {{ coq }}
+  | e1 + e2          :: S:: plus   {{ coq }}
+
+val, v :: 'v_' ::= {{ com values }}
+  | {}               ::  :: top
+  | null             ::  :: null
+  | int                ::  :: int
+  | \ x : A . e : B  ::  :: abs
+  | { l = v }        ::  :: rcd
+  | v1 ,, v2         ::  :: merge
+
+letin :: 'letin_' ::= {{ com let-in bindings }}
+  | id            ::  :: identity
+  | letin letin'  ::  :: composition {{ tex [[letin]]\circ[[letin']] }}
+  | let x = e in  ::  :: bind
+
+ctx, G {{ tex \Gamma }} :: 'ctx_' ::= {{ com typing context }} {{ coq list (atom * typ) }}
+  | []         ::  :: nil  {{ tex \cdot }} {{ coq nil }}
+  | G , x : A  ::  :: cons {{ coq ([[x]]~[[A]]++[[G]]) }}
+
+% source calculus
+
+styp, As {{ tex \mathcal{A} }}, Bs {{ tex \mathcal{B} }} :: 'st_' ::= {{ com source types }}
+  | Int         ::  :: int    {{ com integer type }} {{ tex \mathbb{Z} }}
+  | As -> Bs    ::  :: arrow  {{ com function type }}
+  | { P } -> Bs ::  :: narrow {{ com function type with named parameters }}
+  | ( As )      :: S:: paren  {{ coq ([[As]]) }}
+
+nptyp, P {{ tex \mathcal{P} }} :: 'pt_' ::= {{ com named parameter types }}
+  | []           ::  :: empty    {{ com empty }} {{ tex \cdot }}
+  | l : As ; P   ::  :: required {{ com required parameter }}
+  | l ? : As ; P ::  :: optional {{ com optional parameter }}
+  | ( P )        :: S:: paren    {{ coq ([[P]]) }}
+
+sexp, t {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
+  | int              ::  :: int   {{ com integer literal }} {{ tex n }}
+  | x                ::  :: var   {{ com variable }}
+  | \ ( x : As ) . t ::  :: abs   {{ com abstraction }}
+                                  {{ tex [[\]]([[x]]\!:\![[As]]).\;[[t]] }}
+  | t1 t2            ::  :: app   {{ com application }}
+  | \ { p } . t      ::  :: nabs  {{ com abstraction with named parameters }}
+                                  {{ tex [[\]]\{[[p]]\}.\;[[t]] }}
+  | t { a }          ::  :: napp  {{ com application to named arguments }}
+                                  {{ tex [[t]]\,\{[[a]]\} }}
+  | ( t )            :: S:: paren {{ coq ([[t]]) }}
+  | 0                :: S:: zero  {{ coq }}
+  | 1                :: S:: one   {{ coq }}
+  | 2                :: S:: two   {{ coq }}
+  | e1 + e2          :: S:: plus  {{ coq }}
+
+npexp, p {{ tex \rho }} :: 'par_' ::= {{ com named parameters }}
+  | []         ::  :: empty    {{ com empty }} {{ tex \cdot }}
+  | l : As ; p ::  :: required {{ com required parameter }}
+  | l = t ; p  ::  :: optional {{ com optional parameter }}
+  | ( p )      :: S:: paren    {{ coq ([[p]]) }}
+
+narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
+  | []         ::  :: empty   {{ com empty }} {{ tex \cdot }}
+  | l = t ; a  ::  :: field   {{ com field }}
+  | a \\ l     ::  :: removal {{ com removal }} {{ tex [[a]]\backslash[[l]] }}
+  | ( a )      :: S:: paren   {{ coq ([[a]]) }}
+
+sctx, Gs {{ tex \Delta }} :: 'sctx_' ::= {{ com typing context }} {{ coq list (atom * styp) }}
+  | []          ::  :: nil  {{ tex \cdot }} {{ coq nil }}
+  | Gs , x : As ::  :: cons {{ coq ([[x]]~[[As]]++[[Gs]]) }}
+
+terminals :: 'terminals_' ::=
+  | \    ::  :: lambda     {{ tex \lambda }}
+  | ->   ::  :: arrow      {{ tex \rightarrow }}
+  | -->  ::  :: larrow     {{ tex \longrightarrow }}
+  | ~~>  ::  :: sarrow     {{ tex \,\rightsquigarrow\, }}
+  | =>   ::  :: farrow     {{ tex \Rightarrow }}
+  | =/>  ::  :: nfarrow    {{ tex \nRightarrow }}
+  | |-   ::  :: turnstile  {{ tex \,\vdash\, }}
+  | -|   ::  :: rturnstile {{ tex \,\dashv\, }}
+  | ~    ::  :: consistent {{ tex \approx }}
+  | &    ::  :: and        {{ tex \land  }}
+  | |    ::  :: or         {{ tex \lor }}
+  | ||   ::  :: pipe       {{ tex \Vert }}
+  | ,,   ::  :: merge      {{ tex \bbcomma }}
+  | <>   ::  :: diamond    {{ tex \,\diamond\, }}
+  | ,    ::  :: comma      {{ tex ,\, }}
+
+formula :: 'formula_' ::=
+  | judgement     ::  :: judgement
+  | uniq G        :: M:: uniqG     {{ tex }} {{ coq (uniq[[G]]) }}
+  | x : A in G    :: M:: inG       {{ tex [[x]][[:]][[A]]\in[[G]] }}
+                                   {{ coq (binds[[x]][[A]][[G]]) }}
+  | uniq Gs       :: M:: uniqGs    {{ tex }} {{ coq (uniq[[Gs]]) }}
+  | x : As in Gs  :: M:: inGs      {{ tex [[x]][[:]][[As]]\in[[Gs]] }}
+                                   {{ coq (binds[[x]][[As]][[Gs]]) }}
+  | fresh x       :: M:: fresh     {{ coq True }}
+
+parsing
+  t_arrow <= t_and
+  t_arrow right t_arrow
+  e_merge left e_merge
+
+subrules
+  val <:: exp
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defns
+Statics :: '' ::=
+
+defn
+A <: B :: :: sub :: Sub_
+{{ com Subtyping }}
+by
+
+--------------- :: Top
+A <: Top
+
+
+--------------- :: Bot
+Bot <: A
+
+
+--------------- :: Int
+Int <: Int
+
+
+B1 <: A1
+A2 <: B2
+------------------------ :: Arrow
+A1 -> A2 <: B1 -> B2
+
+
+A <: B
+------------------------ :: Rcd
+{l:A} <: {l:B}
+
+
+A <: B
+A <: C
+------------------------ :: And
+A <: B & C
+
+
+A <: C
+------------------------ :: AndL
+A & B <: C
+
+
+B <: C
+------------------------ :: AndR
+A & B <: C
+
+
+A <: C
+B <: C
+------------------------ :: Or
+A | B <: C
+
+
+A <: B
+------------------------ :: OrL
+A <: B | C
+
+
+A <: C
+------------------------ :: OrR
+A <: B | C
+
+
+
+defn
+G |- e : A :: :: typing :: Typ_
+{{ com Typing }}
+by
+
+uniq G
+----------------- :: Top
+G |- {} : Top
+
+
+uniq G
+----------------- :: Int
+G |- int : Int
+
+
+x : A in G
+uniq G
+----------------- :: Var
+G |- x : A
+
+
+G, x : A |- e : B
+----------------------------- :: Abs
+G |- (\x : A . e : B) : A->B
+
+
+G |- e1 : A -> B
+G |- e2 : A
+----------------------- :: App
+G |- e1 e2 : B
+
+
+G |- e : A
+----------------------- :: Rcd
+G |- {l=e} : {l:A}
+
+
+G |- e : {l:A}
+----------------------- :: Prj
+G |- e.l : A
+
+
+G |- e1 : A
+G |- e2 : B
+----------------------- :: Merge
+G |- e1 ,, e2 : A & B
+
+
+G |- e : A | B
+G, x : A |- e1 : C
+G, x : B |- e2 : C
+-------------------------------------------------- :: Switch
+G |- switch e0 as x case A => e1 case B => e2 : C
+
+
+G |- e : A
+A <: B
+----------------- :: Sub
+G |- e : B
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defns
+Dynamics :: '' ::=
+
+defn
+v --> A v' :: :: casting :: Cast_
+{{ com Type casting }}
+{{ tex [[v]]\,[[-->]]_{[[A]]}\,[[v']] }}
+by
+
+--------------------- :: Top
+v  -->Top  v
+
+
+--------------------- :: Int
+int  -->Int  int
+
+
+A1 -> A2 <: B1 -> B2
+--------------------------------- :: Arrow
+\x:A1.e:A2  -->B1->B2  \x:A1.e:B2
+
+
+v  -->A  v'
+--------------------------------- :: Rcd
+{l=v}  -->{l:A}  {l=v'}
+
+
+v  -->A  v1
+v  -->B  v2
+--------------------------------- :: And
+v  -->A&B  v1,,v2
+
+
+v  -->A  v'
+--------------------------------- :: OrL
+v  -->A|B  v'
+
+
+v  -->B  v'
+--------------------------------- :: OrR
+v  -->A|B  v'
+
+
+v1  -->A  v1'
+--------------------------------- :: MergeL
+v1,,v2  -->A  v1'
+
+
+v2  -->A  v2'
+--------------------------------- :: MergeR
+v1,,v2  -->A  v2'
+
+
+
+defn
+e --> e' :: :: step :: Step_
+{{ com Small-step operational semantics }}
+{{ tex [[e]]\;[[-->]]\;[[e']] }}
+by
+
+v  -->A  v'
+------------------------------------- :: AppBeta
+(\x:A.e:B) v  -->  ([ v' / x ] e) : B
+
+
+------------------- :: PrjBeta
+{l=v}.l  -->  v
+
+
+------------------- :: Dispatch
+(v1,,v2) v3  -->  e
+
+
+v  -->A  v'
+----------------------------------------------------------- :: SwitchL
+switch v as x case A => e1 case B => e2  -->  [ v' / x ] e1
+
+
+v  -->B  v'
+----------------------------------------------------------- :: SwitchR
+switch v as x case A => e1 case B => e2  -->  [ v' / x ] e2
+
+
+e1  -->  e1'
+------------------------------------- :: AppL
+e1 e2  -->  e1' e2
+
+
+e2  -->  e2'
+------------------------------------- :: AppR
+v1 e2  -->  v1 e2'
+
+
+e  -->  e'
+------------------------------------- :: Rcd
+{l=e}  -->  {l=e'}
+
+
+e  -->  e'
+------------------------------------- :: Prj
+e.l  -->  e'.l
+
+
+e1  -->  e1'
+------------------------------------- :: MergeL
+e1 ,, e2  -->  e1' ,, e2
+
+
+e2  -->  e2'
+------------------------------------- :: MergeR
+v1 ,, e2  -->  v1 ,, e2'
+
+
+e0  -->  e0'
+---------------------------------------------------------------------------------------- :: Switch
+switch e0 as x case A => e1 case B => e2  -->  switch e0' as x case A => e1 case B => e2
+
+
+
+defns
+Aux :: '' ::= % FIXME
+defn
+a . l => t :: :: lookup :: LU_
+by
+defn
+a . l =/> :: :: nolookup :: NLU_
+by
+
+
+
+defns
+Source :: '' ::=
+
+defn
+|| As || = A :: :: trans :: Tr_
+{{ com Type translation }}
+by
+
+------------- :: Int
+||Int|| = Int
+
+
+||As|| = A
+||Bs|| = B
+--------------------- :: Arrow
+||As -> Bs|| = A -> B
+
+
+||P|| = A
+||Bs|| = B
+--------------------- :: NArrow
+||{P} -> Bs|| = A -> B
+
+
+
+defn
+|| P || = A :: :: ptrans :: PTr_
+{{ com Parameter type translation }}
+by
+
+------------ :: Empty
+||[]|| = Top
+
+
+||P|| = B
+----------------------- :: Required
+||l:As; P|| = {l:A} & B
+
+
+||P|| = B
+----------------------------- :: Optional
+||l?:As; P|| = {l:A|Null} & B
+
+
+
+defn
+Gs |- t : As ~~> e :: :: elab :: Ela_
+{{ com Elaboration }}
+by
+
+----------------------- :: Int
+Gs |- int : Int ~~> int
+
+
+x : As in Gs
+uniq Gs
+------------------ :: Var
+Gs |- x : As ~~> x
+
+
+Gs,x:As |- t : Bs ~~> e
+||As|| = A
+||Bs|| = B
+------------------------------------- :: Abs
+Gs |- \(x:As).t : As->Bs ~~> \x:A.e:B
+
+
+Gs |- t1 : As -> Bs ~~> e1
+Gs |- t2 : As ~~> e2
+-------------------------- :: App
+Gs |- t1 t2 : Bs ~~> e1 e2
+
+
+fresh x
+Gs; x |- p : P ~~> letin -| Gs'
+Gs' |- t : Bs ~~> e
+||P|| = A
+||Bs|| = B
+----------------------------------------- :: NAbs
+Gs |- \{p}.t : {P}->Bs ~~> \x:A.letin e:B
+
+
+Gs |- t : {P} -> Bs ~~> e
+Gs |- P <> a ~~> e'
+------------------------- :: NApp
+Gs |- t {a} : Bs ~~> e e'
+
+
+
+defn
+Gs ; x |- p : P ~~> letin -| Gs' :: :: pelab :: PEla_
+{{ com Parameter elaboration }}
+by
+
+----------------------------- :: Empty
+Gs; x |- [] : [] ~~> id -| Gs
+
+
+Gs; x |- p : P ~~> letin -| Gs'
+-------------------------------------------------------------------- :: Required
+Gs; x |- (l:As; p) : (l:As; P) ~~> let l = x.l in letin -| Gs', l:As
+
+
+Gs |- t : As ~~> e
+||As|| = A
+Gs; x |- p : P ~~> letin -| Gs'
+----------------------------------------------------------------------------------------------------------- :: Optional
+Gs; x |- (l=t; p) : (l?:As; P) ~~> let l = switch x.l as y case A => y case Null => e in letin -| Gs', l:As
+
+
+
+defn
+Gs |- P <> a ~~> e :: :: pmatch :: PMat_
+{{ com Parameter matching }}
+by
+
+--------------------- :: Empty
+Gs |- [] <> [] ~~> {}
+
+
+Gs |- t : As ~~> e
+Gs |- [] <> a ~~> e'
+---------------------------------- :: Extra
+Gs |- [] <> (l=t; a) ~~> {l=e},,e'
+
+
+a.l => t
+Gs |- t : As ~~> e
+Gs |- P <> a\\l ~~> e'
+---------------------------------- :: Present
+Gs |- (l:As; P) <> a ~~> {l=e},,e'
+
+
+a.l =/>
+Gs |- P <> a ~~> e'
+------------------------------------- :: Absent
+Gs |- (l:As; P) <> a ~~> {l=null},,e'
