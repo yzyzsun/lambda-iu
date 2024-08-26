@@ -34,6 +34,8 @@ nia.cache
 nlia.cache
 nra.cache
 native_compute_profile_*.data
+CoqMakefile
+CoqMakefile.conf
 
 ### LaTeX ###
 *.tex
