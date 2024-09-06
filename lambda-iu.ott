@@ -35,7 +35,6 @@ exp, e :: 'e_' ::= {{ com expressions }}
   | e1 ,, e2         ::  :: merge  {{ com merging }}
   | switch e0 as x case A => e1 case B => e2
                      ::  :: switch {{ com type switch }}
-  | e : A            ::  :: anno   {{ com annotation }}
   | letin e          ::  :: letin
   | [ e1 / x ] e2    :: M:: subst  {{ coq (open_exp_wrt_exp[[x e2]][[e1]]) }}
   | ( e )            :: S:: paren  {{ coq ([[e]]) }}
@@ -75,31 +74,31 @@ nptyp, P {{ tex \mathcal{P} }} :: 'pt_' ::= {{ com named parameter types }}
   | l ? : As ; P ::  :: optional {{ com optional parameter }}
   | ( P )        :: S:: paren    {{ coq ([[P]]) }}
 
-sexp, t {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
-  | int              ::  :: int   {{ com integer literal }} {{ tex n }}
-  | x                ::  :: var   {{ com variable }}
-  | \ ( x : As ) . t ::  :: abs   {{ com abstraction }}
-                                  {{ tex [[\]]([[x]]\!:\![[As]]).\;[[t]] }}
-  | t1 t2            ::  :: app   {{ com application }}
-  | \ { p } . t      ::  :: nabs  {{ com abstraction with named parameters }}
-                                  {{ tex [[\]]\{[[p]]\}.\;[[t]] }}
-  | t { a }          ::  :: napp  {{ com application to named arguments }}
-                                  {{ tex [[t]]\,\{[[a]]\} }}
-  | ( t )            :: S:: paren {{ coq ([[t]]) }}
-  | 0                :: S:: zero  {{ coq }}
-  | 1                :: S:: one   {{ coq }}
-  | 2                :: S:: two   {{ coq }}
-  | e1 + e2          :: S:: plus  {{ coq }}
+sexp, es {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
+  | int               ::  :: int   {{ com integer literal }} {{ tex n }}
+  | x                 ::  :: var   {{ com variable }}
+  | \ ( x : As ) . es ::  :: abs   {{ com abstraction }}
+                                   {{ tex [[\]]([[x]]\!:\![[As]]).\;[[es]] }}
+  | es1 es2           ::  :: app   {{ com application }}
+  | \ { p } . es      ::  :: nabs  {{ com abstraction with named parameters }}
+                                   {{ tex [[\]]\{[[p]]\}.\;[[es]] }}
+  | es { a }          ::  :: napp  {{ com application to named arguments }}
+                                   {{ tex [[es]]\,\{[[a]]\} }}
+  | ( es )            :: S:: paren {{ coq ([[es]]) }}
+  | 0                 :: S:: zero  {{ coq }}
+  | 1                 :: S:: one   {{ coq }}
+  | 2                 :: S:: two   {{ coq }}
+  | es1 + es2         :: S:: plus  {{ coq }}
 
 npexp, p {{ tex \rho }} :: 'par_' ::= {{ com named parameters }}
   | []         ::  :: empty    {{ com empty }} {{ tex \cdot }}
   | l : As ; p ::  :: required {{ com required parameter }}
-  | l = t ; p  ::  :: optional {{ com optional parameter }}
+  | l = es ; p ::  :: optional {{ com optional parameter }}
   | ( p )      :: S:: paren    {{ coq ([[p]]) }}
 
 narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
   | []         ::  :: empty   {{ com empty }} {{ tex \cdot }}
-  | l = t ; a  ::  :: field   {{ com field }}
+  | l = es ; a ::  :: field   {{ com field }}
   | a \\ l     ::  :: removal {{ com removal }} {{ tex [[a]]\backslash[[l]] }}
   | ( a )      :: S:: paren   {{ coq ([[a]]) }}
 
@@ -138,6 +137,8 @@ parsing
   t_arrow <= t_and
   t_arrow right t_arrow
   e_merge left e_merge
+  se_abs <= se_plus
+  se_nabs <= se_plus
 
 subrules
   val <:: exp
@@ -145,7 +146,21 @@ subrules
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
-Statics :: '' ::=
+Aux :: '' ::= % FIXME
+defn
+G |- letin -| G' :: :: letbind :: LB_
+by
+defn
+a . l => es :: :: lookup :: LU_
+by
+defn
+a . l =/> :: :: nolookup :: NLU_
+by
+
+
+
+defns
+Target :: '' ::=
 
 defn
 A <: B :: :: sub :: Sub_
@@ -263,140 +278,16 @@ G, x : B |- e2 : C
 G |- switch e0 as x case A => e1 case B => e2 : C
 
 
+G |- letin -| G'
+G' |- e : A
+----------------- :: Let
+G |- letin e : A
+
+
 G |- e : A
 A <: B
 ----------------- :: Sub
 G |- e : B
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-defns
-Dynamics :: '' ::=
-
-defn
-v --> A v' :: :: casting :: Cast_
-{{ com Type casting }}
-{{ tex [[v]]\,[[-->]]_{[[A]]}\,[[v']] }}
-by
-
---------------------- :: Top
-v  -->Top  v
-
-
---------------------- :: Int
-int  -->Int  int
-
-
-A1 -> A2 <: B1 -> B2
---------------------------------- :: Arrow
-\x:A1.e:A2  -->B1->B2  \x:A1.e:B2
-
-
-v  -->A  v'
---------------------------------- :: Rcd
-{l=v}  -->{l:A}  {l=v'}
-
-
-v  -->A  v1
-v  -->B  v2
---------------------------------- :: And
-v  -->A&B  v1,,v2
-
-
-v  -->A  v'
---------------------------------- :: OrL
-v  -->A|B  v'
-
-
-v  -->B  v'
---------------------------------- :: OrR
-v  -->A|B  v'
-
-
-v1  -->A  v1'
---------------------------------- :: MergeL
-v1,,v2  -->A  v1'
-
-
-v2  -->A  v2'
---------------------------------- :: MergeR
-v1,,v2  -->A  v2'
-
-
-
-defn
-e --> e' :: :: step :: Step_
-{{ com Small-step operational semantics }}
-{{ tex [[e]]\;[[-->]]\;[[e']] }}
-by
-
-v  -->A  v'
-------------------------------------- :: AppBeta
-(\x:A.e:B) v  -->  ([ v' / x ] e) : B
-
-
-------------------- :: PrjBeta
-{l=v}.l  -->  v
-
-
-------------------- :: Dispatch
-(v1,,v2) v3  -->  e
-
-
-v  -->A  v'
------------------------------------------------------------ :: SwitchL
-switch v as x case A => e1 case B => e2  -->  [ v' / x ] e1
-
-
-v  -->B  v'
------------------------------------------------------------ :: SwitchR
-switch v as x case A => e1 case B => e2  -->  [ v' / x ] e2
-
-
-e1  -->  e1'
-------------------------------------- :: AppL
-e1 e2  -->  e1' e2
-
-
-e2  -->  e2'
-------------------------------------- :: AppR
-v1 e2  -->  v1 e2'
-
-
-e  -->  e'
-------------------------------------- :: Rcd
-{l=e}  -->  {l=e'}
-
-
-e  -->  e'
-------------------------------------- :: Prj
-e.l  -->  e'.l
-
-
-e1  -->  e1'
-------------------------------------- :: MergeL
-e1 ,, e2  -->  e1' ,, e2
-
-
-e2  -->  e2'
-------------------------------------- :: MergeR
-v1 ,, e2  -->  v1 ,, e2'
-
-
-e0  -->  e0'
----------------------------------------------------------------------------------------- :: Switch
-switch e0 as x case A => e1 case B => e2  -->  switch e0' as x case A => e1 case B => e2
-
-
-
-defns
-Aux :: '' ::= % FIXME
-defn
-a . l => t :: :: lookup :: LU_
-by
-defn
-a . l =/> :: :: nolookup :: NLU_
-by
 
 
 
@@ -446,10 +337,27 @@ by
 
 
 defn
-Gs |- t : As ~~> e :: :: elab :: Ela_
+|| Gs || = G :: :: ctxtrans :: GTr_
+{{ com Context translation }}
+by
+
+----------- :: Nil
+||[]|| = []
+
+
+||Gs|| = G
+||As|| = A
+--------------------- :: Cons
+||Gs, x:As|| = G, x:A
+
+
+
+defn
+Gs |- es : As ~~> e :: :: elab :: Ela_
 {{ com Elaboration }}
 by
 
+uniq Gs
 ----------------------- :: Int
 Gs |- int : Int ~~> int
 
@@ -460,32 +368,32 @@ uniq Gs
 Gs |- x : As ~~> x
 
 
-Gs,x:As |- t : Bs ~~> e
+Gs,x:As |- es : Bs ~~> e
 ||As|| = A
 ||Bs|| = B
-------------------------------------- :: Abs
-Gs |- \(x:As).t : As->Bs ~~> \x:A.e:B
+-------------------------------------- :: Abs
+Gs |- \(x:As).es : As->Bs ~~> \x:A.e:B
 
 
-Gs |- t1 : As -> Bs ~~> e1
-Gs |- t2 : As ~~> e2
--------------------------- :: App
-Gs |- t1 t2 : Bs ~~> e1 e2
+Gs |- es1 : As -> Bs ~~> e1
+Gs |- es2 : As ~~> e2
+---------------------------- :: App
+Gs |- es1 es2 : Bs ~~> e1 e2
 
 
 fresh x
 Gs; x |- p : P ~~> letin -| Gs'
-Gs' |- t : Bs ~~> e
+Gs' |- es : Bs ~~> e
 ||P|| = A
 ||Bs|| = B
------------------------------------------ :: NAbs
-Gs |- \{p}.t : {P}->Bs ~~> \x:A.letin e:B
+------------------------------------------ :: NAbs
+Gs |- \{p}.es : {P}->Bs ~~> \x:A.letin e:B
 
 
-Gs |- t : {P} -> Bs ~~> e
+Gs |- es : {P} -> Bs ~~> e
 Gs |- P <> a ~~> e'
-------------------------- :: NApp
-Gs |- t {a} : Bs ~~> e e'
+-------------------------- :: NApp
+Gs |- es {a} : Bs ~~> e e'
 
 
 
@@ -503,11 +411,11 @@ Gs; x |- p : P ~~> letin -| Gs'
 Gs; x |- (l:As; p) : (l:As; P) ~~> let l = x.l in letin -| Gs', l:As
 
 
-Gs |- t : As ~~> e
+Gs |- es : As ~~> e
 ||As|| = A
 Gs; x |- p : P ~~> letin -| Gs'
------------------------------------------------------------------------------------------------------------ :: Optional
-Gs; x |- (l=t; p) : (l?:As; P) ~~> let l = switch x.l as y case A => y case Null => e in letin -| Gs', l:As
+------------------------------------------------------------------------------------------------------------ :: Optional
+Gs; x |- (l=es; p) : (l?:As; P) ~~> let l = switch x.l as y case A => y case Null => e in letin -| Gs', l:As
 
 
 
@@ -520,14 +428,14 @@ by
 Gs |- [] <> [] ~~> {}
 
 
-Gs |- t : As ~~> e
+Gs |- es : As ~~> e
 Gs |- [] <> a ~~> e'
----------------------------------- :: Extra
-Gs |- [] <> (l=t; a) ~~> {l=e},,e'
+----------------------------------- :: Extra
+Gs |- [] <> (l=es; a) ~~> {l=e},,e'
 
 
-a.l => t
-Gs |- t : As ~~> e
+a.l => es
+Gs |- es : As ~~> e
 Gs |- P <> a\\l ~~> e'
 ---------------------------------- :: Present
 Gs |- (l:As; P) <> a ~~> {l=e},,e'

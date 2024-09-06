@@ -35,12 +35,6 @@
 \section*{From \source to \target}
 \ottdefnsSource
 
-\newtheorem{theorem}{Theorem}
-\begin{theorem}[Elaboration soundness]
-  If $[[Gs |- t : As ~~> e]]$ and $[[||As|| = A]]$, then $[[G |- e : A]]$.
-\end{theorem}
-
-\newpage
 \begin{landscape}
 \newtheorem{example}{Example}
 \begin{example}
@@ -83,10 +77,16 @@
    ~~> (\z: {x:Int}&{y:Int|Null}. e0: Int) ({x=1},,{y=null},,{z=2}) ]]}
 \end{mathpar}
 \end{example}
+
+\bigskip
+
+\newtheorem{theorem}{Theorem}
+\begin{theorem}[Elaboration soundness]
+  If $[[Gs |- es : As ~~> e]]$ and $[[||Gs|| = G]]$ and $[[||As|| = A]]$, then $[[G |- e : A]]$.
+\end{theorem}
 \end{landscape}
 
 \section*{Appendix: Semantics of \target}
-\ottdefnsStatics
-\ottdefnsDynamics
+\ottdefnsTarget
 
 \end{document}
