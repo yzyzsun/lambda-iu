@@ -5,12 +5,44 @@ embed
 \DeclareMathSymbol{\bbcomma}{\mathbin}{bbsymbol}{"2C}
 }}
 
-indexvar index, i, j, n, m ::= {{ coq nat }}
-metavar var, x, y, z, l {{ tex \ell }} ::=  {{ repr-locally-nameless }} {{ com variable/label }}
+embed
+{{ coq
+Set Implicit Arguments.
+
+Definition one (C : Type) (item : C) : list C := cons item nil.
+Notation "x ~ a" := (one (x, a)) (at level 50) : list_scope.
+
+Fixpoint dom
+  (C : Type) (E : list (nat*C)) : list nat :=
+  match E with
+    | nil => nil
+    | (x, _) :: E' => x :: dom E'
+  end.
+
+Definition binds
+  (A : Type) (x : nat) (a : A) (E : list (nat*A)) : Prop :=
+  In (x, a) E.
+
+Definition fresh
+  (A : Type) (x : nat) (E : list (nat*A)) : Prop :=
+  ~ In x (dom E).
+
+Inductive uniq (A : Type) : list (nat*A) -> Prop :=
+  | uniq_nil :
+      uniq nil
+  | uniq_push : forall x a E,
+      uniq E ->
+      ~ In x (dom E) ->
+      uniq (x ~ a ++ E).
+
+Unset Implicit Arguments.
+}}
+
+metavar var, x, y, z, l {{ tex \ell }} ::=  {{ coq nat }} {{ com variable/label }}
 
 grammar
 
-% target calculus
+%%%%% target calculus %%%%%
 
 typ, A, B, C :: 't_' ::= {{ com types }}
   | Top        ::  :: top    {{ com top type }} {{ tex \top }}
@@ -36,7 +68,6 @@ exp, e :: 'e_' ::= {{ com expressions }}
   | switch e0 as x case A => e1 case B => e2
                      ::  :: switch {{ com type switch }}
   | letin e          ::  :: letin
-  | [ e1 / x ] e2    :: M:: subst  {{ coq (open_exp_wrt_exp[[x e2]][[e1]]) }}
   | ( e )            :: S:: paren  {{ coq ([[e]]) }}
   | 0                :: S:: zero   {{ coq }}
   | 1                :: S:: one    {{ coq }}
@@ -46,7 +77,7 @@ exp, e :: 'e_' ::= {{ com expressions }}
 val, v :: 'v_' ::= {{ com values }}
   | {}               ::  :: top
   | null             ::  :: null
-  | int                ::  :: int
+  | int              ::  :: int
   | \ x : A . e : B  ::  :: abs
   | { l = v }        ::  :: rcd
   | v1 ,, v2         ::  :: merge
@@ -56,11 +87,11 @@ letin :: 'letin_' ::= {{ com let-in bindings }}
   | letin letin'  ::  :: composition {{ tex [[letin]]\circ[[letin']] }}
   | let x = e in  ::  :: bind
 
-ctx, G {{ tex \Gamma }} :: 'ctx_' ::= {{ com typing context }} {{ coq list (atom * typ) }}
-  | []         ::  :: nil  {{ tex \cdot }} {{ coq nil }}
-  | G , x : A  ::  :: cons {{ coq ([[x]]~[[A]]++[[G]]) }}
+ctx, G {{ tex \Gamma }} :: 'ctx_' ::= {{ com typing context }} {{ coq list (nat * typ) }}
+  | []         ::  :: nil   {{ tex \cdot }} {{ coq nil }}
+  | G , x : A  ::  :: cons  {{ coq (([[x]],[[A]])::[[G]]) }}
 
-% source calculus
+%%%%% source calculus %%%%%
 
 styp, As {{ tex \mathcal{A} }}, Bs {{ tex \mathcal{B} }} :: 'st_' ::= {{ com source types }}
   | Int         ::  :: int    {{ com integer type }} {{ tex \mathbb{Z} }}
@@ -102,9 +133,9 @@ narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
   | a \\ l     ::  :: removal {{ com removal }} {{ tex [[a]]\backslash[[l]] }}
   | ( a )      :: S:: paren   {{ coq ([[a]]) }}
 
-sctx, Gs {{ tex \Delta }} :: 'sctx_' ::= {{ com typing context }} {{ coq list (atom * styp) }}
+sctx, Gs {{ tex \Delta }} :: 'sctx_' ::= {{ com typing context }} {{ coq list (nat * styp) }}
   | []          ::  :: nil  {{ tex \cdot }} {{ coq nil }}
-  | Gs , x : As ::  :: cons {{ coq ([[x]]~[[As]]++[[Gs]]) }}
+  | Gs , x : As ::  :: cons {{ coq (([[x]],[[As]])::[[Gs]]) }}
 
 terminals :: 'terminals_' ::=
   | \    ::  :: lambda     {{ tex \lambda }}
@@ -118,7 +149,7 @@ terminals :: 'terminals_' ::=
   | ~    ::  :: consistent {{ tex \approx }}
   | &    ::  :: and        {{ tex \land  }}
   | |    ::  :: or         {{ tex \lor }}
-  | ||   ::  :: pipe       {{ tex \Vert }}
+  | ||   ::  :: pipe       {{ tex | }}
   | ,,   ::  :: merge      {{ tex \bbcomma }}
   | <>   ::  :: diamond    {{ tex \,\diamond\, }}
   | ,    ::  :: comma      {{ tex ,\, }}
@@ -131,7 +162,9 @@ formula :: 'formula_' ::=
   | uniq Gs       :: M:: uniqGs    {{ tex }} {{ coq (uniq[[Gs]]) }}
   | x : As in Gs  :: M:: inGs      {{ tex [[x]][[:]][[As]]\in[[Gs]] }}
                                    {{ coq (binds[[x]][[As]][[Gs]]) }}
-  | fresh x       :: M:: fresh     {{ coq True }}
+  | x notin Gs    :: M:: fresh     {{ tex \mathbf{fresh}\,[[x]] }}
+                                   {{ coq (fresh[[x]][[Gs]]) }}
+  | A = B         :: M:: eqTyp     {{ coq ([[A]]=[[B]]) }}
 
 parsing
   t_arrow <= t_and
@@ -142,6 +175,36 @@ parsing
 
 subrules
   val <:: exp
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+funs
+Trans ::=
+
+fun
+|| As || :: A :: trans
+{{ com Type translation }}
+by
+||Int|| === Int
+||As -> Bs|| === ||As|| -> ||Bs||
+||{P} -> Bs|| === ||P|| -> ||Bs||
+
+fun
+|| P || :: A :: ptrans
+{{ com Parameter type translation }}
+by
+||[]|| === Top
+||l:As; P|| === { l: ||As|| } & ||P||
+||l?:As; P|| === { l: ||As|| | Null } & ||P||
+
+funs
+CtxTrans ::=
+fun
+|| Gs || :: G :: ctxtrans
+{{ com Typing context translation }}
+by
+||[]|| === []
+||Gs, x:As|| === ||Gs||, x:||As||
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -295,64 +358,6 @@ defns
 Source :: '' ::=
 
 defn
-|| As || = A :: :: trans :: Tr_
-{{ com Type translation }}
-by
-
-------------- :: Int
-||Int|| = Int
-
-
-||As|| = A
-||Bs|| = B
---------------------- :: Arrow
-||As -> Bs|| = A -> B
-
-
-||P|| = A
-||Bs|| = B
---------------------- :: NArrow
-||{P} -> Bs|| = A -> B
-
-
-
-defn
-|| P || = A :: :: ptrans :: PTr_
-{{ com Parameter type translation }}
-by
-
------------- :: Empty
-||[]|| = Top
-
-
-||P|| = B
------------------------ :: Required
-||l:As; P|| = {l:A} & B
-
-
-||P|| = B
------------------------------ :: Optional
-||l?:As; P|| = {l:A|Null} & B
-
-
-
-defn
-|| Gs || = G :: :: ctxtrans :: GTr_
-{{ com Context translation }}
-by
-
------------ :: Nil
-||[]|| = []
-
-
-||Gs|| = G
-||As|| = A
---------------------- :: Cons
-||Gs, x:As|| = G, x:A
-
-
-
-defn
 Gs |- es : As ~~> e :: :: elab :: Ela_
 {{ com Elaboration }}
 by
@@ -381,7 +386,7 @@ Gs |- es2 : As ~~> e2
 Gs |- es1 es2 : Bs ~~> e1 e2
 
 
-fresh x
+x notin Gs'
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : Bs ~~> e
 ||P|| = A

@@ -34,6 +34,8 @@
 
 \section*{From \source to \target}
 \ottdefnsSource
+\ottfundefnsTrans
+\ottfundefnsCtxTrans
 
 \begin{landscape}
 \newtheorem{example}{Example}
@@ -82,7 +84,7 @@
 
 \newtheorem{theorem}{Theorem}
 \begin{theorem}[Elaboration soundness]
-  If $[[Gs |- es : As ~~> e]]$ and $[[||Gs|| = G]]$ and $[[||As|| = A]]$, then $[[G |- e : A]]$.
+  If $[[Gs |- es : As ~~> e]]$, then $[[||Gs|| |- e : ||As||]]$.
 \end{theorem}
 \end{landscape}
 

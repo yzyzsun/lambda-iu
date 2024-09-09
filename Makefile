@@ -5,7 +5,7 @@ all: $(OTT_DST) CoqMakefile
 	make -f CoqMakefile
 
 $(OTT_DST): $(OTT_SRC)
-	ott -i $(OTT_SRC) -o $(OTT_DST)
+	ott -i $(OTT_SRC) -o $(OTT_DST) -coq_expand_list_types true
 
 CoqMakefile: _CoqProject
 	coq_makefile -f _CoqProject -o CoqMakefile
