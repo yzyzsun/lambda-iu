@@ -47,6 +47,15 @@ Inductive typ : Set :=  (*r types *)
  | t_and (A:typ) (B:typ) (*r intersection type *)
  | t_or (A:typ) (B:typ) (*r union type *).
 
+Inductive styp : Set :=  (*r source types *)
+ | st_int : styp (*r integer type *)
+ | st_arrow (As:styp) (Bs:styp) (*r function type *)
+ | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
+with nptyp : Set :=  (*r named parameter types *)
+ | pt_empty : nptyp (*r empty *)
+ | pt_required (l:var) (As:styp) (P:nptyp) (*r required parameter *)
+ | pt_optional (l:var) (As:styp) (P:nptyp) (*r optional parameter *).
+
 Inductive exp : Set :=  (*r expressions *)
  | e_top : exp (*r top value *)
  | e_null : exp (*r null value *)
@@ -64,34 +73,24 @@ with letin : Set :=  (*r let-in bindings *)
  | letin_composition (letin5:letin) (letin':letin)
  | letin_bind (x:var) (e:exp).
 
-Inductive styp : Set :=  (*r source types *)
- | st_int : styp (*r integer type *)
- | st_arrow (As:styp) (Bs:styp) (*r function type *)
- | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
-with nptyp : Set :=  (*r named parameter types *)
- | pt_empty : nptyp (*r empty *)
- | pt_required (l:var) (As:styp) (P:nptyp) (*r required parameter *)
- | pt_optional (l:var) (As:styp) (P:nptyp) (*r optional parameter *).
-
-Definition ctx : Set := list (nat * typ).
-
 Definition sctx : Set := list (nat * styp).
 
-Inductive npexp : Set :=  (*r named parameters *)
- | par_empty : npexp (*r empty *)
- | par_required (l:var) (As:styp) (p:npexp) (*r required parameter *)
- | par_optional (l:var) (es:sexp) (p:npexp) (*r optional parameter *)
-with narg : Set :=  (*r named arguments *)
- | arg_empty : narg (*r empty *)
- | arg_field (l:var) (es:sexp) (a:narg) (*r field *)
- | arg_removal (a:narg) (l:var) (*r removal *)
-with sexp : Set :=  (*r source expressions *)
+Inductive sexp : Set :=  (*r source expressions *)
  | se_int : sexp (*r integer literal *)
  | se_var (x:var) (*r variable *)
  | se_abs (x:var) (As:styp) (es:sexp) (*r abstraction *)
  | se_app (es1:sexp) (es2:sexp) (*r application *)
  | se_nabs (p:npexp) (es:sexp) (*r abstraction with named parameters *)
- | se_napp (es:sexp) (a:narg) (*r application to named arguments *).
+ | se_napp (es:sexp) (a:narg) (*r application to named arguments *)
+with npexp : Set :=  (*r named parameters *)
+ | par_empty : npexp (*r empty *)
+ | par_required (l:var) (As:styp) (p:npexp) (*r required parameter *)
+ | par_optional (l:var) (es:sexp) (p:npexp) (*r optional parameter *)
+with narg : Set :=  (*r named arguments *)
+ | arg_empty : narg (*r empty *)
+ | arg_field (l:var) (es:sexp) (a:narg) (*r field *).
+
+Definition ctx : Set := list (nat * typ).
 
 (** subrules *)
 Fixpoint is_val_of_exp (e_5:exp) : Prop :=
@@ -108,6 +107,14 @@ Fixpoint is_val_of_exp (e_5:exp) : Prop :=
   | (e_switch e0 x A e1 B e2) => False
   | (e_letin letin5 e) => False
 end.
+
+Fixpoint remove (l : nat) (a : narg) :=
+  match a with
+    | arg_empty => arg_empty
+    | arg_field l' es a' => let a'' := remove l a' in
+                            if l =? l' then a''
+                            else arg_field l' es a''
+  end.
 
 (** definitions *)
 
@@ -134,12 +141,6 @@ Fixpoint ctxtrans (x1:sctx) : ctx:=
   |  (( x , As ):: Gs )  =>  (( x ,  (trans As )  )::  (ctxtrans Gs )  ) 
 end.
 
-(** definitions *)
-
-(* defns Aux *)
-Inductive letbind : ctx -> letin -> ctx -> Prop :=    (* defn letbind *)
-with lookup : narg -> var -> sexp -> Prop :=    (* defn lookup *)
-with nolookup : narg -> var -> Prop :=    (* defn nolookup *).
 (** definitions *)
 
 (* defns Target *)
@@ -217,7 +218,17 @@ with typing : ctx -> exp -> typ -> Prop :=    (* defn typing *)
  | Typ_Sub : forall (G:ctx) (e:exp) (B A:typ),
      typing G e A ->
      sub A B ->
-     typing G e B.
+     typing G e B
+with letbind : ctx -> letin -> ctx -> Prop :=    (* defn letbind *)
+ | LB_Let : forall (G:ctx) (x:var) (e:exp) (A:typ),
+     typing G e A ->
+     letbind G (letin_bind x e)  (( x , A ):: G ) 
+ | LB_Comp : forall (G:ctx) (letin1 letin2:letin) (G'' G':ctx),
+     letbind G letin1 G' ->
+     letbind G' letin2 G'' ->
+     letbind G (letin_composition letin1 letin2) G''
+ | LB_Id : forall (G:ctx),
+     letbind G letin_identity G.
 (** definitions *)
 
 (* defns Source *)
@@ -270,11 +281,22 @@ with pmatch : sctx -> nptyp -> narg -> exp -> Prop :=    (* defn pmatch *)
  | PMat_Present : forall (Gs:sctx) (l:var) (As:styp) (P:nptyp) (a:narg) (e e':exp) (es:sexp),
      lookup a l es ->
      elab Gs es As e ->
-     pmatch Gs P (arg_removal a l) e' ->
+     pmatch Gs P  (remove l a )  e' ->
      pmatch Gs  ( (pt_required l As P) )  a (e_merge (e_rcd l e) e')
  | PMat_Absent : forall (Gs:sctx) (l:var) (As:styp) (P:nptyp) (a:narg) (e':exp),
-     nolookup a l ->
+     lookdown a l ->
      pmatch Gs P a e' ->
-     pmatch Gs  ( (pt_required l As P) )  a (e_merge (e_rcd l e_null) e').
+     pmatch Gs  ( (pt_required l As P) )  a (e_merge (e_rcd l e_null) e')
+with lookup : narg -> var -> sexp -> Prop :=    (* defn lookup *)
+ | LU_Field : forall (l:var) (es:sexp) (a' a:narg),
+     lookdown a l ->
+     lookup  ( (arg_field l es a') )  l es
+with lookdown : narg -> var -> Prop :=    (* defn lookdown *)
+ | LD_Empty : forall (l:var),
+     lookdown arg_empty l
+ | LD_Field : forall (l':var) (es:sexp) (a:narg) (l:var),
+      l <> l'  ->
+     lookdown a l ->
+     lookdown  ( (arg_field l' es a) )  l.
 
 

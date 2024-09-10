@@ -2,23 +2,28 @@ Require Import List.
 
 Require Import Definitions.
 
-Lemma ctxtrans_cong_uniq : forall Gs G,
-  ctxtrans Gs = G ->
+Lemma uniq_ctxtrans : forall Gs,
   uniq Gs ->
-  uniq G.
+  uniq (ctxtrans Gs).
 Admitted.
 
-Lemma ctxtrans_cong_binds : forall Gs G As A x,
-  ctxtrans Gs = G ->
-  trans As = A ->
+Lemma binds_ctxtrans : forall Gs As x,
   binds x As Gs ->
-  binds x A G. 
+  binds x (trans As) (ctxtrans Gs). 
 Admitted.
 
-Lemma ctxtrans_append : forall Gs Gs' G G',
-  ctxtrans Gs = G ->
-  ctxtrans Gs' = G' ->
-  ctxtrans (Gs' ++ Gs) = G' ++ G.
+Lemma append_ctxtrans : forall Gs Gs',
+  ctxtrans (Gs ++ Gs') = ctxtrans Gs ++ ctxtrans Gs'.
+Admitted.
+
+Lemma fresh_ctxtrans : forall Gs x,
+  fresh x Gs ->
+  fresh x (ctxtrans Gs).
+Admitted.
+
+Lemma fresh_uniq : forall G F x (A:typ),
+  fresh x (F ++ G) ->
+  uniq (F ++ x ~ A ++ G).
 Admitted.
 
 Lemma pelab_inc : forall Gs Es x p P letin,
@@ -34,8 +39,9 @@ Lemma pelab_letbind : forall Gs Gs' G G' x p P letin A,
   letbind (x ~ A ++ G) letin (G' ++ x ~ A ++ G).
 Admitted.
 
-Lemma typing_weakening : forall G F E e A,
+Lemma typing_weaken : forall G F E e A,
   typing (G ++ E) e A ->
+  uniq (G ++ F ++ E) ->
   typing (G ++ F ++ E) e A.
 Admitted.
 
@@ -54,14 +60,14 @@ Theorem elab_sound : forall Gs es As G e A,
 Proof with eauto.
   intros Gs es. revert Gs.
   induction es; intros * Helab HGtrans Htrans;
-                inversion Helab; subst; simpl.
+                inversion Helab; subst.
   - (* Ela_Int *)
     apply Typ_Int.
-    eapply ctxtrans_cong_uniq...
+    eapply uniq_ctxtrans...
   - (* Ela_Var *)
     apply Typ_Var.
-    { eapply ctxtrans_cong_binds... }
-    { eapply ctxtrans_cong_uniq... }
+    { eapply binds_ctxtrans... }
+    { eapply uniq_ctxtrans... }
   - (* Ela_Abs *)
     apply Typ_Abs.
     eapply IHes...
@@ -72,10 +78,13 @@ Proof with eauto.
   - (* Ela_NAbs *)
     pose proof pelab_inc _ _ _ _ _ _ H2 as [Fs Heq]. subst.
     apply Typ_Abs. eapply Typ_Let.
-    { eapply pelab_letbind... }
-    { apply typing_weakening.
-      eapply IHes...
-      eapply ctxtrans_append... }
+    + eapply pelab_letbind...
+    + apply typing_weaken.
+      { eapply IHes...
+        eapply append_ctxtrans... }
+      { apply fresh_uniq.
+        rewrite <- append_ctxtrans.
+        eapply fresh_ctxtrans... }
   - (* Ela_NApp *)
     apply Typ_App with (A := ptrans P).
     { eapply IHes... }

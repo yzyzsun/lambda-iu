@@ -130,7 +130,7 @@ npexp, p {{ tex \rho }} :: 'par_' ::= {{ com named parameters }}
 narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
   | []         ::  :: empty   {{ com empty }} {{ tex \cdot }}
   | l = es ; a ::  :: field   {{ com field }}
-  | a \\ l     ::  :: removal {{ com removal }} {{ tex [[a]]\backslash[[l]] }}
+  | a \\ l     :: M:: removal {{ com removal }} {{ coq (remove[[l]][[a]]) }}
   | ( a )      :: S:: paren   {{ coq ([[a]]) }}
 
 sctx, Gs {{ tex \Delta }} :: 'sctx_' ::= {{ com typing context }} {{ coq list (nat * styp) }}
@@ -150,8 +150,10 @@ terminals :: 'terminals_' ::=
   | &    ::  :: and        {{ tex \land  }}
   | |    ::  :: or         {{ tex \lor }}
   | ||   ::  :: pipe       {{ tex | }}
+  | \\   ::  :: backslash  {{ tex \backslash }}
   | ,,   ::  :: merge      {{ tex \bbcomma }}
   | <>   ::  :: diamond    {{ tex \,\diamond\, }}
+  | /=   ::  :: neq        {{ tex \neq }}
   | ,    ::  :: comma      {{ tex ,\, }}
 
 formula :: 'formula_' ::=
@@ -165,6 +167,7 @@ formula :: 'formula_' ::=
   | x notin Gs    :: M:: fresh     {{ tex \mathbf{fresh}\,[[x]] }}
                                    {{ coq (fresh[[x]][[Gs]]) }}
   | A = B         :: M:: eqTyp     {{ coq ([[A]]=[[B]]) }}
+  | l /= l'       :: M:: neqLabel  {{ coq l <> l' }}
 
 parsing
   t_arrow <= t_and
@@ -177,6 +180,17 @@ subrules
   val <:: exp
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+embed
+{{ coq
+Fixpoint remove (l : nat) (a : narg) :=
+  match a with
+    | arg_empty => arg_empty
+    | arg_field l' es a' => let a'' := remove l a' in
+                            if l =? l' then a''
+                            else arg_field l' es a''
+  end.
+}}
 
 funs
 Trans ::=
@@ -207,20 +221,6 @@ by
 ||Gs, x:As|| === ||Gs||, x:||As||
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-defns
-Aux :: '' ::= % FIXME
-defn
-G |- letin -| G' :: :: letbind :: LB_
-by
-defn
-a . l => es :: :: lookup :: LU_
-by
-defn
-a . l =/> :: :: nolookup :: NLU_
-by
-
-
 
 defns
 Target :: '' ::=
@@ -354,6 +354,27 @@ G |- e : B
 
 
 
+defn
+G |- letin -| G' :: :: letbind :: LB_
+{{ com Let-in binding }}
+by
+
+G |- e : A
+--------------------------- :: Let
+G |- let x = e in -| G, x:A
+
+
+G |- letin1 -| G'
+G' |- letin2 -| G''
+------------------------- :: Comp
+G |- letin1 letin2 -| G''
+
+
+------------ :: Id
+G |- id -| G
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 defns
 Source :: '' ::=
 
@@ -450,3 +471,29 @@ a.l =/>
 Gs |- P <> a ~~> e'
 ------------------------------------- :: Absent
 Gs |- (l:As; P) <> a ~~> {l=null},,e'
+
+
+
+defn
+a . l => es :: :: lookup :: LU_
+{{ com Successful lookup }}
+by
+
+a.l =/>
+--------------------- :: Field
+(l = es ; a').l => es
+
+
+defn
+a . l =/> :: :: lookdown :: LD_
+{{ com Failed lookup }}
+by
+
+-------- :: Empty
+[].l =/>
+
+
+l' /= l
+a.l =/>
+------------------- :: Field
+(l' = es ; a).l =/>

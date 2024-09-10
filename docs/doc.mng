@@ -26,7 +26,8 @@
 \begin{align*}
   &\text{Types}          &[[A]],[[B]] ::=&~ [[Top]] ~|~ [[Bot]] ~|~ [[Null]] ~|~ [[Int]] ~|~ [[A -> B]] ~|~ [[{l : A}]] ~|~ [[A & B]] ~|~ [[A | B]] \\
   &\text{Expressions}    &      [[e]] ::=&~ [[{}]] ~|~ [[null]] ~|~ [[int]] ~|~ [[x]] ~|~ [[\x:A. e:B]] ~|~ [[e1 e2]] ~|~ [[{l = e}]] ~|~ [[e.l]] ~|~ [[e1 ,, e2]] ~|~ \\
-  &                      &                     &~ [[switch e0 as x case A => e1 case B => e2]] ~|~ [[let x = e1 in e2]] \\ % Add fixpoint?
+  &                      &                     &~ [[switch e0 as x case A => e1 case B => e2]] ~|~ [[letin e]] \\
+  &\text{Let-in bindings}&  [[letin]] ::=&~ [[let x = e in]] ~|~ [[letin1 letin2]] ~|~ [[id]] \\
 \end{align*}
 
 \section*{Syntax of \source\footnote{\source = Unnamed Arguments Encoded Named Arguments} (source)}
@@ -36,6 +37,12 @@
 \ottdefnsSource
 \ottfundefnsTrans
 \ottfundefnsCtxTrans
+
+\bigskip
+\newtheorem{theorem}{Theorem}
+\begin{theorem}[Elaboration soundness]
+  If $[[Gs |- es : As ~~> e]]$, then $[[||Gs|| |- e : ||As||]]$.
+\end{theorem}
 
 \begin{landscape}
 \newtheorem{example}{Example}
@@ -47,7 +54,7 @@
 
 [[e0]] = [[letin1 letin2]]\ [[(x+y)]]
 
-\inferrule*[Right=Ela-NPAbs]
+\inferrule*[Right=Ela-NAbs]
 { [[ [], y:Int, x:Int |- x + y : Int ~~> x + y ]] \\
   \inferrule*[Right=PEla-Required]
   { \inferrule*[Right=PEla-Optional]
@@ -79,13 +86,6 @@
    ~~> (\z: {x:Int}&{y:Int|Null}. e0: Int) ({x=1},,{y=null},,{z=2}) ]]}
 \end{mathpar}
 \end{example}
-
-\bigskip
-
-\newtheorem{theorem}{Theorem}
-\begin{theorem}[Elaboration soundness]
-  If $[[Gs |- es : As ~~> e]]$, then $[[||Gs|| |- e : ||As||]]$.
-\end{theorem}
 \end{landscape}
 
 \section*{Appendix: Semantics of \target}
