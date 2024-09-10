@@ -15,4 +15,7 @@ clean:
 	rm -f CoqMakefile CoqMakefile.conf
 	rm -f $(OTT_DST)
 
-.PHONY: all clean
+doc:
+	make -C docs
+
+.PHONY: all clean doc
