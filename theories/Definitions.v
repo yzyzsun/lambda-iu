@@ -28,9 +28,9 @@ Definition fresh
 Inductive uniq (A : Type) : list (nat*A) -> Prop :=
   | uniq_nil :
       uniq nil
-  | uniq_push : forall x a E,
+  | uniq_cons : forall x a E,
       uniq E ->
-      ~ In x (dom E) ->
+      fresh x E ->
       uniq (x ~ a ++ E).
 
 Unset Implicit Arguments.
@@ -251,6 +251,7 @@ Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
      elab Gs (se_app es1 es2) Bs (e_app e1 e2)
  | Ela_NAbs : forall (Gs:sctx) (p:npexp) (es:sexp) (P:nptyp) (Bs:styp) (x:var) (A:typ) (letin5:letin) (e:exp) (B:typ) (Gs':sctx),
       (fresh x Gs' )  ->
+      (uniq Gs' )  ->
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es Bs e ->
       (  (ptrans P )  = A )  ->

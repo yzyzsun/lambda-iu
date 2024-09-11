@@ -30,9 +30,9 @@ Definition fresh
 Inductive uniq (A : Type) : list (nat*A) -> Prop :=
   | uniq_nil :
       uniq nil
-  | uniq_push : forall x a E,
+  | uniq_cons : forall x a E,
       uniq E ->
-      ~ In x (dom E) ->
+      fresh x E ->
       uniq (x ~ a ++ E).
 
 Unset Implicit Arguments.
@@ -408,6 +408,7 @@ Gs |- es1 es2 : Bs ~~> e1 e2
 
 
 x notin Gs'
+uniq Gs'
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : Bs ~~> e
 ||P|| = A
