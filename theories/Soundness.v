@@ -1,7 +1,38 @@
-Require Import List.
-Require Import PeanoNat.
+Require Import Coq.Arith.PeanoNat.
+Require Import Coq.Lists.List.
+Require Import Coq.Program.Equality.
 
 Require Import Definitions.
+
+Lemma sub_refl : forall A,
+  sub A A.
+Proof with auto.
+  induction A.
+  - apply Sub_Top.
+  - apply Sub_Bot.
+  - apply Sub_Null.
+  - apply Sub_Int.
+  - apply Sub_Arrow...
+  - apply Sub_Rcd...
+  - apply Sub_And. apply Sub_AndL... apply Sub_AndR...
+  - apply Sub_Or. apply Sub_OrL... apply Sub_OrR...
+Qed.
+
+Lemma sub_trans : forall A B C,
+  sub A B -> sub B C -> sub A C.
+Proof with eauto.
+  intros * Hsub. revert C.
+  induction Hsub; intros * Hsub'...
+  - dependent induction Hsub'.
+    + apply Sub_Top.
+    + apply Sub_And...
+    + apply Sub_OrL...
+    + apply Sub_OrR...
+  - apply Sub_Bot.
+  - inversion Hsub'.
+    + apply Sub_Top.
+    + apply Sub_Arrow...
+Admitted.
 
 Lemma cons_append : forall {T} (G : list T) t,
   t :: G = one t ++ G.
@@ -131,16 +162,88 @@ Proof with eauto.
         eapply fresh_weaken... }
 Qed.
 
-Lemma pelab_inc : forall Gs Es x p P letin,
+Lemma pelab_letbind : forall Gs Es x p P letin A,
+  fresh x Es -> uniq Es ->
   pelab Gs x p P letin Es ->
-  exists Fs, Es = Fs ++ Gs.
-Admitted.
-
-Lemma pelab_letbind : forall Gs Gs' G G' x p P letin A,
-  pelab Gs x p P letin (Gs' ++ Gs) ->
-  ctxtrans Gs = G ->
-  ctxtrans Gs' = G' ->
-  letbind (x ~ A ++ G) letin (G' ++ x ~ A ++ G).
+  sub A (ptrans P) ->
+  exists Fs,
+  Es = Fs ++ Gs /\
+  letbind (x ~ A ++ ctxtrans Gs)
+    letin (ctxtrans Fs ++ x ~ A ++ ctxtrans Gs).
+Proof with eauto.
+  intros * Hfresh Huniq Hpelab Hsub.
+  induction Hpelab.
+  - (* PEla-Empty *)
+    exists nil. split...
+    apply LB_Id.
+  - (* PEla-Required *)
+    destruct IHHpelab as [Fs [Heq Hletbind]].
+    { rewrite cons_append in Hfresh.
+      rewrite <- app_nil_r in Hfresh.
+      rewrite <- app_assoc in Hfresh.
+      eapply fresh_weaken... }
+    { rewrite cons_append in Huniq.
+      rewrite <- app_nil_r in Huniq.
+      rewrite <- app_assoc in Huniq.
+      eapply uniq_weaken... }
+    { simpl in Hsub. eapply sub_trans...
+      apply Sub_AndL. apply sub_refl. }
+    subst. exists (l ~ As ++ Fs). split...
+    apply LB_Comp with (G' := ctxtrans Fs
+                  ++ x ~ A ++ ctxtrans Gs)... 
+    simpl. apply LB_Let. apply Typ_Prj.
+    eapply Typ_Sub with (A := A). apply Typ_Var.
+    unfold binds. apply in_or_app. right. left... 
+    apply fresh_uniq.
+    { rewrite <- append_ctxtrans.
+      apply fresh_ctxtrans.
+      rewrite cons_append in Hfresh.
+      rewrite <- app_nil_r in Hfresh.
+      rewrite <- app_assoc in Hfresh.
+      eapply fresh_weaken... }
+    { rewrite <- append_ctxtrans.
+      apply uniq_ctxtrans.
+      rewrite cons_append in Huniq.
+      rewrite <- app_nil_r in Huniq.
+      rewrite <- app_assoc in Huniq.
+      eapply uniq_weaken... }
+    eapply sub_trans... simpl.
+    apply Sub_AndR. apply sub_refl.
+  - (* PEla-Optional *)
+    destruct IHHpelab as [Fs [Heq Hletbind]].
+    { rewrite cons_append in Hfresh.
+      rewrite <- app_nil_r in Hfresh.
+      rewrite <- app_assoc in Hfresh.
+      eapply fresh_weaken... }
+    { rewrite cons_append in Huniq.
+      rewrite <- app_nil_r in Huniq.
+      rewrite <- app_assoc in Huniq.
+      eapply uniq_weaken... }
+    { simpl in Hsub. eapply sub_trans...
+      apply Sub_AndL. apply sub_refl. }
+    subst. exists (l ~ As ++ Fs). split...
+    apply LB_Comp with (G' := ctxtrans Fs
+                  ++ x ~ A ++ ctxtrans Gs)... 
+    simpl. apply LB_Let.
+    apply Typ_Switch. apply Typ_Prj.
+    eapply Typ_Sub with (A := A). apply Typ_Var.
+    unfold binds. apply in_or_app. right. left... 
+    apply fresh_uniq.
+    { rewrite <- append_ctxtrans.
+      apply fresh_ctxtrans.
+      rewrite cons_append in Hfresh.
+      rewrite <- app_nil_r in Hfresh.
+      rewrite <- app_assoc in Hfresh.
+      eapply fresh_weaken... }
+    { rewrite <- append_ctxtrans.
+      apply uniq_ctxtrans.
+      rewrite cons_append in Huniq.
+      rewrite <- app_nil_r in Huniq.
+      rewrite <- app_assoc in Huniq.
+      eapply uniq_weaken... }
+    eapply sub_trans... simpl.
+    apply Sub_AndR. apply sub_refl.
+    apply Typ_Var. left... admit.
 Admitted.
 
 Lemma typing_weaken : forall G F E e A,
@@ -180,12 +283,14 @@ Proof with eauto.
     { eapply IHes1... }
     { eapply IHes2... }
   - (* Ela_NAbs *)
-    pose proof pelab_inc _ _ _ _ _ _ H3 as [Fs Heq]. subst.
+    pose proof pelab_letbind _ _ _ _ _ _
+               (ptrans P) H1 H2 H3 as [Fs [Heq Hlet]].
+    apply sub_refl. subst.
     apply Typ_Abs. eapply Typ_Let.
-    + eapply pelab_letbind...
+    + eapply Hlet...
     + apply typing_weaken.
       { eapply IHes...
-        eapply append_ctxtrans... }
+        apply append_ctxtrans... }
       { apply fresh_uniq.
         rewrite <- append_ctxtrans.
         apply fresh_ctxtrans...
