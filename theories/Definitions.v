@@ -53,8 +53,8 @@ Inductive styp : Set :=  (*r source types *)
  | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
 with nptyp : Set :=  (*r named parameter types *)
  | pt_empty : nptyp (*r empty *)
- | pt_required (l:var) (As:styp) (P:nptyp) (*r required parameter *)
- | pt_optional (l:var) (As:styp) (P:nptyp) (*r optional parameter *).
+ | pt_required (P:nptyp) (l:var) (As:styp) (*r required parameter *)
+ | pt_optional (P:nptyp) (l:var) (As:styp) (*r optional parameter *).
 
 Inductive exp : Set :=  (*r expressions *)
  | e_top : exp (*r top value *)
@@ -84,11 +84,11 @@ Inductive sexp : Set :=  (*r source expressions *)
  | se_napp (es:sexp) (a:narg) (*r application to named arguments *)
 with npexp : Set :=  (*r named parameters *)
  | par_empty : npexp (*r empty *)
- | par_required (l:var) (As:styp) (p:npexp) (*r required parameter *)
- | par_optional (l:var) (es:sexp) (p:npexp) (*r optional parameter *)
+ | par_required (p:npexp) (l:var) (As:styp) (*r required parameter *)
+ | par_optional (p:npexp) (l:var) (es:sexp) (*r optional parameter *)
 with narg : Set :=  (*r named arguments *)
  | arg_empty : narg (*r empty *)
- | arg_field (l:var) (es:sexp) (a:narg) (*r field *).
+ | arg_field (a:narg) (l:var) (es:sexp) (*r field *).
 
 Definition ctx : Set := list (nat * typ).
 
@@ -111,9 +111,9 @@ end.
 Fixpoint remove (l : nat) (a : narg) :=
   match a with
     | arg_empty => arg_empty
-    | arg_field l' es a' => let a'' := remove l a' in
+    | arg_field a' l' es => let a'' := remove l a' in
                             if l =? l' then a''
-                            else arg_field l' es a''
+                            else arg_field a'' l' es
   end.
 
 (** definitions *)
@@ -122,8 +122,8 @@ Fixpoint remove (l : nat) (a : narg) :=
 Fixpoint ptrans (x1:nptyp) : typ:=
   match x1 with
   | pt_empty => t_top
-  | (pt_required l As P) => (t_and (t_rcd l  (trans As ) )  (ptrans P ) )
-  | (pt_optional l As P) => (t_and (t_rcd l (t_or  (trans As )  t_null))  (ptrans P ) )
+  | (pt_required P l As) => (t_and  (ptrans P )  (t_rcd l  (trans As ) ))
+  | (pt_optional P l As) => (t_and  (ptrans P )  (t_rcd l (t_or  (trans As )  t_null)))
 end
 with trans (x1:styp) : typ:=
   match x1 with
@@ -149,6 +149,8 @@ Inductive sub : typ -> typ -> Prop :=    (* defn sub *)
      sub A t_top
  | Sub_Bot : forall (A:typ),
      sub t_bot A
+ | Sub_Null : 
+     sub t_null t_null
  | Sub_Int : 
      sub t_int t_int
  | Sub_Arrow : forall (A1 A2 B1 B2:typ),
@@ -206,8 +208,8 @@ with typing : ctx -> exp -> typ -> Prop :=    (* defn typing *)
      typing G e1 A ->
      typing G e2 B ->
      typing G (e_merge e1 e2) (t_and A B)
- | Typ_Switch : forall (G:ctx) (e0:exp) (x:var) (A:typ) (e1:exp) (B:typ) (e2:exp) (C:typ) (e:exp),
-     typing G e (t_or A B) ->
+ | Typ_Switch : forall (G:ctx) (e0:exp) (x:var) (A:typ) (e1:exp) (B:typ) (e2:exp) (C:typ),
+     typing G e0 (t_or A B) ->
      typing  (( x , A ):: G )  e1 C ->
      typing  (( x , B ):: G )  e2 C ->
      typing G (e_switch e0 x A e1 B e2) C
@@ -264,40 +266,51 @@ Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
 with pelab : sctx -> var -> npexp -> nptyp -> letin -> sctx -> Prop :=    (* defn pelab *)
  | PEla_Empty : forall (Gs:sctx) (x:var),
      pelab Gs x par_empty pt_empty letin_identity Gs
- | PEla_Required : forall (Gs:sctx) (x l:var) (As:styp) (p:npexp) (P:nptyp) (letin5:letin) (Gs':sctx),
+ | PEla_Required : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (As:styp) (P:nptyp) (letin5:letin) (Gs':sctx),
      pelab Gs x p P letin5 Gs' ->
-     pelab Gs x  ( (par_required l As p) )   ( (pt_required l As P) )  (letin_composition (letin_bind l (e_prj (e_var x) l)) letin5)  (( l , As ):: Gs' ) 
- | PEla_Optional : forall (Gs:sctx) (x l:var) (es:sexp) (p:npexp) (As:styp) (P:nptyp) (y:var) (A:typ) (e:exp) (letin5:letin) (Gs':sctx),
-     elab Gs es As e ->
+     pelab Gs x  ( (par_required p l As) )   ( (pt_required P l As) )  (letin_composition letin5 (letin_bind l (e_prj (e_var x) l)))  (( l , As ):: Gs' ) 
+ | PEla_Optional : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (es:sexp) (P:nptyp) (As:styp) (letin5:letin) (y:var) (A:typ) (e:exp) (Gs':sctx),
+      (fresh y Gs' )  ->
+      x <> y  ->
+     pelab Gs x p P letin5 Gs' ->
+     elab Gs' es As e ->
       (  (trans As )  = A )  ->
-     pelab Gs x p P letin5 Gs' ->
-     pelab Gs x  ( (par_optional l es p) )   ( (pt_optional l As P) )  (letin_composition (letin_bind l (e_switch (e_prj (e_var x) l) y A (e_var y) t_null e)) letin5)  (( l , As ):: Gs' ) 
+     pelab Gs x  ( (par_optional p l es) )   ( (pt_optional P l As) )  (letin_composition letin5 (letin_bind l (e_switch (e_prj (e_var x) l) y A (e_var y) t_null e)))  (( l , As ):: Gs' ) 
 with pmatch : sctx -> nptyp -> narg -> exp -> Prop :=    (* defn pmatch *)
  | PMat_Empty : forall (Gs:sctx),
      pmatch Gs pt_empty arg_empty e_top
- | PMat_Extra : forall (Gs:sctx) (l:var) (es:sexp) (a:narg) (e e':exp) (As:styp),
+ | PMat_Extra : forall (Gs:sctx) (a:narg) (l:var) (es:sexp) (e' e:exp) (As:styp),
      elab Gs es As e ->
      pmatch Gs pt_empty a e' ->
-     pmatch Gs pt_empty  ( (arg_field l es a) )  (e_merge (e_rcd l e) e')
- | PMat_Present : forall (Gs:sctx) (l:var) (As:styp) (P:nptyp) (a:narg) (e e':exp) (es:sexp),
+     pmatch Gs pt_empty  ( (arg_field a l es) )  (e_merge e' (e_rcd l e))
+ | PMat_Required : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e' e:exp) (es:sexp),
      lookup a l es ->
      elab Gs es As e ->
      pmatch Gs P  (remove l a )  e' ->
-     pmatch Gs  ( (pt_required l As P) )  a (e_merge (e_rcd l e) e')
- | PMat_Absent : forall (Gs:sctx) (l:var) (As:styp) (P:nptyp) (a:narg) (e':exp),
+     pmatch Gs  ( (pt_required P l As) )  a (e_merge e' (e_rcd l e))
+ | PMat_Present : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e' e:exp) (es:sexp),
+     lookup a l es ->
+     elab Gs es As e ->
+     pmatch Gs P  (remove l a )  e' ->
+     pmatch Gs  ( (pt_optional P l As) )  a (e_merge e' (e_rcd l e))
+ | PMat_Absent : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e':exp),
      lookdown a l ->
      pmatch Gs P a e' ->
-     pmatch Gs  ( (pt_required l As P) )  a (e_merge (e_rcd l e_null) e')
+     pmatch Gs  ( (pt_optional P l As) )  a (e_merge e' (e_rcd l e_null))
 with lookup : narg -> var -> sexp -> Prop :=    (* defn lookup *)
- | LU_Field : forall (l:var) (es:sexp) (a' a:narg),
+ | LU_Present : forall (a:narg) (l:var) (es:sexp),
      lookdown a l ->
-     lookup  ( (arg_field l es a') )  l es
+     lookup  ( (arg_field a l es) )  l es
+ | LU_Absent : forall (a:narg) (l':var) (es':sexp) (l:var) (es:sexp),
+      l' <> l  ->
+     lookup a l es ->
+     lookup  ( (arg_field a l' es') )  l es
 with lookdown : narg -> var -> Prop :=    (* defn lookdown *)
  | LD_Empty : forall (l:var),
      lookdown arg_empty l
- | LD_Field : forall (l':var) (es:sexp) (a:narg) (l:var),
-      l <> l'  ->
+ | LD_Absent : forall (a:narg) (l':var) (es:sexp) (l:var),
+      l' <> l  ->
      lookdown a l ->
-     lookdown  ( (arg_field l' es a) )  l.
+     lookdown  ( (arg_field a l' es) )  l.
 
 

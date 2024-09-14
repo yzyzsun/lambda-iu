@@ -168,7 +168,7 @@ formula :: 'formula_' ::=
   | x notin Gs    :: M:: fresh     {{ tex \mathbf{fresh}\,[[x]] }}
                                    {{ coq (fresh[[x]][[Gs]]) }}
   | A = B         :: M:: eqTyp     {{ coq ([[A]]=[[B]]) }}
-  | l /= l'       :: M:: neqLabel  {{ coq l <> l' }}
+  | l /= l'       :: M:: neqLabel  {{ coq [[l]]<>[[l']] }}
 
 parsing
   t_arrow <= t_and
@@ -237,6 +237,10 @@ A <: Top
 
 --------------- :: Bot
 Bot <: A
+
+
+--------------- :: Null
+Null <: Null
 
 
 --------------- :: Int
@@ -335,7 +339,7 @@ G |- e2 : B
 G |- e1 ,, e2 : A & B
 
 
-G |- e : A | B
+G |- e0 : A | B
 G, x : A |- e1 : C
 G, x : B |- e2 : C
 -------------------------------------------------- :: Switch
@@ -440,6 +444,8 @@ Gs; x |- p : P ~~> letin -| Gs'
 Gs; x |- (p; l:As) : (P; l:As) ~~> letin let l = x.l in -| Gs', l:As
 
 
+y notin Gs'
+x /= y
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : As ~~> e
 ||As|| = A
@@ -466,14 +472,21 @@ Gs |- [] <> (a; l=es) ~~> e',,{l=e}
 a.l => es
 Gs |- es : As ~~> e
 Gs |- P <> a\\l ~~> e'
----------------------------------- :: Present
+---------------------------------- :: Required
 Gs |- (P; l:As) <> a ~~> e',,{l=e}
+
+
+a.l => es
+Gs |- es : As ~~> e
+Gs |- P <> a\\l ~~> e'
+----------------------------------- :: Present
+Gs |- (P; l?:As) <> a ~~> e',,{l=e}
 
 
 a.l =/>
 Gs |- P <> a ~~> e'
-------------------------------------- :: Absent
-Gs |- (P; l:As) <> a ~~> e',,{l=null}
+-------------------------------------- :: Absent
+Gs |- (P; l?:As) <> a ~~> e',,{l=null}
 
 
 
@@ -483,8 +496,15 @@ a . l => es :: :: lookup :: LU_
 by
 
 a.l =/>
---------------------- :: Field
-(a'; l = es).l => es
+------------------- :: Present
+(a; l = es).l => es
+
+
+l' /= l
+a.l => es
+--------------------- :: Absent
+(a; l' = es').l => es
+
 
 
 defn
@@ -498,5 +518,5 @@ by
 
 l' /= l
 a.l =/>
-------------------- :: Field
+------------------ :: Absent
 (a; l' = es).l =/>
