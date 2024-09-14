@@ -101,8 +101,8 @@ styp, As {{ tex \mathcal{A} }}, Bs {{ tex \mathcal{B} }} :: 'st_' ::= {{ com sou
 
 nptyp, P {{ tex \mathcal{P} }} :: 'pt_' ::= {{ com named parameter types }}
   | []           ::  :: empty    {{ com empty }} {{ tex \cdot }}
-  | l : As ; P   ::  :: required {{ com required parameter }}
-  | l ? : As ; P ::  :: optional {{ com optional parameter }}
+  | P ; l : As   ::  :: required {{ com required parameter }}
+  | P ; l ? : As ::  :: optional {{ com optional parameter }}
   | ( P )        :: S:: paren    {{ coq ([[P]]) }}
 
 sexp, es {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
@@ -123,13 +123,13 @@ sexp, es {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
 
 npexp, p {{ tex \rho }} :: 'par_' ::= {{ com named parameters }}
   | []         ::  :: empty    {{ com empty }} {{ tex \cdot }}
-  | l : As ; p ::  :: required {{ com required parameter }}
-  | l = es ; p ::  :: optional {{ com optional parameter }}
+  | p ; l : As ::  :: required {{ com required parameter }}
+  | p ; l = es ::  :: optional {{ com optional parameter }}
   | ( p )      :: S:: paren    {{ coq ([[p]]) }}
 
 narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
   | []         ::  :: empty   {{ com empty }} {{ tex \cdot }}
-  | l = es ; a ::  :: field   {{ com field }}
+  | a ; l = es ::  :: field   {{ com field }}
   | a \\ l     :: M:: removal {{ com removal }} {{ coq (remove[[l]][[a]]) }}
   | ( a )      :: S:: paren   {{ coq ([[a]]) }}
 
@@ -151,10 +151,11 @@ terminals :: 'terminals_' ::=
   | |    ::  :: or         {{ tex \lor }}
   | ||   ::  :: pipe       {{ tex | }}
   | \\   ::  :: backslash  {{ tex \backslash }}
-  | ,,   ::  :: merge      {{ tex \bbcomma }}
   | <>   ::  :: diamond    {{ tex \,\diamond\, }}
   | /=   ::  :: neq        {{ tex \neq }}
+  | ,,   ::  :: merge      {{ tex \bbcomma }}
   | ,    ::  :: comma      {{ tex ,\, }}
+  | ;    ::  :: semicomma  {{ tex ;\, }}
 
 formula :: 'formula_' ::=
   | judgement     ::  :: judgement
@@ -186,9 +187,9 @@ embed
 Fixpoint remove (l : nat) (a : narg) :=
   match a with
     | arg_empty => arg_empty
-    | arg_field l' es a' => let a'' := remove l a' in
+    | arg_field a' l' es => let a'' := remove l a' in
                             if l =? l' then a''
-                            else arg_field l' es a''
+                            else arg_field a'' l' es
   end.
 }}
 
@@ -208,8 +209,8 @@ fun
 {{ com Parameter type translation }}
 by
 ||[]|| === Top
-||l:As; P|| === { l: ||As|| } & ||P||
-||l?:As; P|| === { l: ||As|| | Null } & ||P||
+||P; l:As|| === ||P|| & { l: ||As|| }
+||P; l?:As|| === ||P|| & { l: ||As|| | Null }
 
 funs
 CtxTrans ::=
@@ -427,6 +428,7 @@ Gs |- es {a} : Bs ~~> e e'
 defn
 Gs ; x |- p : P ~~> letin -| Gs' :: :: pelab :: PEla_
 {{ com Parameter elaboration }}
+{{ tex [[Gs]][[|-]]_{\!\!\!\![[x]]}\:\:[[p]][[:]][[P]][[~~>]][[letin]][[-|]][[Gs']] }}
 by
 
 ----------------------------- :: Empty
@@ -435,14 +437,14 @@ Gs; x |- [] : [] ~~> id -| Gs
 
 Gs; x |- p : P ~~> letin -| Gs'
 -------------------------------------------------------------------- :: Required
-Gs; x |- (l:As; p) : (l:As; P) ~~> let l = x.l in letin -| Gs', l:As
+Gs; x |- (p; l:As) : (P; l:As) ~~> letin let l = x.l in -| Gs', l:As
 
 
-Gs |- es : As ~~> e
-||As|| = A
 Gs; x |- p : P ~~> letin -| Gs'
+Gs' |- es : As ~~> e
+||As|| = A
 ------------------------------------------------------------------------------------------------------------ :: Optional
-Gs; x |- (l=es; p) : (l?:As; P) ~~> let l = switch x.l as y case A => y case Null => e in letin -| Gs', l:As
+Gs; x |- (p; l=es) : (P; l?:As) ~~> letin let l = switch x.l as y case A => y case Null => e in -| Gs', l:As
 
 
 
@@ -458,20 +460,20 @@ Gs |- [] <> [] ~~> {}
 Gs |- es : As ~~> e
 Gs |- [] <> a ~~> e'
 ----------------------------------- :: Extra
-Gs |- [] <> (l=es; a) ~~> {l=e},,e'
+Gs |- [] <> (a; l=es) ~~> e',,{l=e}
 
 
 a.l => es
 Gs |- es : As ~~> e
 Gs |- P <> a\\l ~~> e'
 ---------------------------------- :: Present
-Gs |- (l:As; P) <> a ~~> {l=e},,e'
+Gs |- (P; l:As) <> a ~~> e',,{l=e}
 
 
 a.l =/>
 Gs |- P <> a ~~> e'
 ------------------------------------- :: Absent
-Gs |- (l:As; P) <> a ~~> {l=null},,e'
+Gs |- (P; l:As) <> a ~~> e',,{l=null}
 
 
 
@@ -482,7 +484,7 @@ by
 
 a.l =/>
 --------------------- :: Field
-(l = es ; a').l => es
+(a'; l = es).l => es
 
 
 defn
@@ -497,4 +499,4 @@ by
 l' /= l
 a.l =/>
 ------------------- :: Field
-(l' = es ; a).l =/>
+(a; l' = es).l =/>
