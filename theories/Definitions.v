@@ -10,28 +10,9 @@ Set Implicit Arguments.
 Definition one (C : Type) (item : C) : list C := cons item nil.
 Notation "x ~ a" := (one (x, a)) (at level 50) : list_scope.
 
-Fixpoint dom
-  (C : Type) (E : list (nat*C)) : list nat :=
-  match E with
-    | nil => nil
-    | (x, _) :: E' => x :: dom E'
-  end.
-
 Definition binds
   (A : Type) (x : nat) (a : A) (E : list (nat*A)) : Prop :=
   In (x, a) E.
-
-Definition fresh
-  (A : Type) (x : nat) (E : list (nat*A)) : Prop :=
-  ~ In x (dom E).
-
-Inductive uniq (A : Type) : list (nat*A) -> Prop :=
-  | uniq_nil :
-      uniq nil
-  | uniq_cons : forall x a E,
-      uniq E ->
-      fresh x E ->
-      uniq (x ~ a ++ E).
 
 Unset Implicit Arguments.
 
@@ -46,15 +27,6 @@ Inductive typ : Set :=  (*r types *)
  | t_rcd (l:var) (A:typ) (*r record type *)
  | t_and (A:typ) (B:typ) (*r intersection type *)
  | t_or (A:typ) (B:typ) (*r union type *).
-
-Inductive styp : Set :=  (*r source types *)
- | st_int : styp (*r integer type *)
- | st_arrow (As:styp) (Bs:styp) (*r function type *)
- | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
-with nptyp : Set :=  (*r named parameter types *)
- | pt_empty : nptyp (*r empty *)
- | pt_required (P:nptyp) (l:var) (As:styp) (*r required parameter *)
- | pt_optional (P:nptyp) (l:var) (As:styp) (*r optional parameter *).
 
 Inductive exp : Set :=  (*r expressions *)
  | e_top : exp (*r top value *)
@@ -73,6 +45,17 @@ with letin : Set :=  (*r let-in bindings *)
  | letin_composition (letin5:letin) (letin':letin)
  | letin_bind (x:var) (e:exp).
 
+Inductive styp : Set :=  (*r source types *)
+ | st_int : styp (*r integer type *)
+ | st_arrow (As:styp) (Bs:styp) (*r function type *)
+ | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
+with nptyp : Set :=  (*r named parameter types *)
+ | pt_empty : nptyp (*r empty *)
+ | pt_required (P:nptyp) (l:var) (As:styp) (*r required parameter *)
+ | pt_optional (P:nptyp) (l:var) (As:styp) (*r optional parameter *).
+
+Definition ctx : Set := list (nat * typ).
+
 Definition sctx : Set := list (nat * styp).
 
 Inductive sexp : Set :=  (*r source expressions *)
@@ -89,8 +72,6 @@ with npexp : Set :=  (*r named parameters *)
 with narg : Set :=  (*r named arguments *)
  | arg_empty : narg (*r empty *)
  | arg_field (a:narg) (l:var) (es:sexp) (*r field *).
-
-Definition ctx : Set := list (nat * typ).
 
 (** subrules *)
 Fixpoint is_val_of_exp (e_5:exp) : Prop :=
@@ -182,14 +163,11 @@ Inductive sub : typ -> typ -> Prop :=    (* defn sub *)
      sub A (t_or B C)
 with typing : ctx -> exp -> typ -> Prop :=    (* defn typing *)
  | Typ_Top : forall (G:ctx),
-      (uniq G )  ->
      typing G e_top t_top
  | Typ_Int : forall (G:ctx),
-      (uniq G )  ->
      typing G e_int t_int
  | Typ_Var : forall (G:ctx) (x:var) (A:typ),
       (binds x A G )  ->
-      (uniq G )  ->
      typing G (e_var x) A
  | Typ_Abs : forall (G:ctx) (x:var) (A:typ) (e:exp) (B:typ),
      typing  (( x , A ):: G )  e B ->
@@ -236,11 +214,9 @@ with letbind : ctx -> letin -> ctx -> Prop :=    (* defn letbind *)
 (* defns Source *)
 Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
  | Ela_Int : forall (Gs:sctx),
-      (uniq Gs )  ->
      elab Gs se_int st_int e_int
  | Ela_Var : forall (Gs:sctx) (x:var) (As:styp),
       (binds x As Gs )  ->
-      (uniq Gs )  ->
      elab Gs (se_var x) As (e_var x)
  | Ela_Abs : forall (Gs:sctx) (x:var) (As:styp) (es:sexp) (Bs:styp) (A:typ) (e:exp) (B:typ),
      elab  (( x , As ):: Gs )  es Bs e ->
@@ -252,8 +228,6 @@ Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
      elab Gs es2 As e2 ->
      elab Gs (se_app es1 es2) Bs (e_app e1 e2)
  | Ela_NAbs : forall (Gs:sctx) (p:npexp) (es:sexp) (P:nptyp) (Bs:styp) (x:var) (A:typ) (letin5:letin) (e:exp) (B:typ) (Gs':sctx),
-      (fresh x Gs' )  ->
-      (uniq Gs' )  ->
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es Bs e ->
       (  (ptrans P )  = A )  ->
@@ -270,8 +244,6 @@ with pelab : sctx -> var -> npexp -> nptyp -> letin -> sctx -> Prop :=    (* def
      pelab Gs x p P letin5 Gs' ->
      pelab Gs x  ( (par_required p l As) )   ( (pt_required P l As) )  (letin_composition letin5 (letin_bind l (e_prj (e_var x) l)))  (( l , As ):: Gs' ) 
  | PEla_Optional : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (es:sexp) (P:nptyp) (As:styp) (letin5:letin) (y:var) (A:typ) (e:exp) (Gs':sctx),
-      (fresh y Gs' )  ->
-      x <> y  ->
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es As e ->
       (  (trans As )  = A )  ->

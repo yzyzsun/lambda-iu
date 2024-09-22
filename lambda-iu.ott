@@ -12,28 +12,9 @@ Set Implicit Arguments.
 Definition one (C : Type) (item : C) : list C := cons item nil.
 Notation "x ~ a" := (one (x, a)) (at level 50) : list_scope.
 
-Fixpoint dom
-  (C : Type) (E : list (nat*C)) : list nat :=
-  match E with
-    | nil => nil
-    | (x, _) :: E' => x :: dom E'
-  end.
-
 Definition binds
   (A : Type) (x : nat) (a : A) (E : list (nat*A)) : Prop :=
   In (x, a) E.
-
-Definition fresh
-  (A : Type) (x : nat) (E : list (nat*A)) : Prop :=
-  ~ In x (dom E).
-
-Inductive uniq (A : Type) : list (nat*A) -> Prop :=
-  | uniq_nil :
-      uniq nil
-  | uniq_cons : forall x a E,
-      uniq E ->
-      fresh x E ->
-      uniq (x ~ a ++ E).
 
 Unset Implicit Arguments.
 }}
@@ -159,14 +140,10 @@ terminals :: 'terminals_' ::=
 
 formula :: 'formula_' ::=
   | judgement     ::  :: judgement
-  | uniq G        :: M:: uniqG     {{ tex }} {{ coq (uniq[[G]]) }}
   | x : A in G    :: M:: inG       {{ tex [[x]][[:]][[A]]\in[[G]] }}
                                    {{ coq (binds[[x]][[A]][[G]]) }}
-  | uniq Gs       :: M:: uniqGs    {{ tex }} {{ coq (uniq[[Gs]]) }}
   | x : As in Gs  :: M:: inGs      {{ tex [[x]][[:]][[As]]\in[[Gs]] }}
                                    {{ coq (binds[[x]][[As]][[Gs]]) }}
-  | x notin Gs    :: M:: fresh     {{ tex \mathbf{fresh}\,[[x]] }}
-                                   {{ coq (fresh[[x]][[Gs]]) }}
   | A = B         :: M:: eqTyp     {{ coq ([[A]]=[[B]]) }}
   | l /= l'       :: M:: neqLabel  {{ coq [[l]]<>[[l']] }}
 
@@ -296,18 +273,15 @@ G |- e : A :: :: typing :: Typ_
 {{ com Typing }}
 by
 
-uniq G
 ----------------- :: Top
 G |- {} : Top
 
 
-uniq G
 ----------------- :: Int
 G |- int : Int
 
 
 x : A in G
-uniq G
 ----------------- :: Var
 G |- x : A
 
@@ -388,13 +362,11 @@ Gs |- es : As ~~> e :: :: elab :: Ela_
 {{ com Elaboration }}
 by
 
-uniq Gs
 ----------------------- :: Int
 Gs |- int : Int ~~> int
 
 
 x : As in Gs
-uniq Gs
 ------------------ :: Var
 Gs |- x : As ~~> x
 
@@ -412,8 +384,6 @@ Gs |- es2 : As ~~> e2
 Gs |- es1 es2 : Bs ~~> e1 e2
 
 
-x notin Gs'
-uniq Gs'
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : Bs ~~> e
 ||P|| = A
@@ -444,8 +414,6 @@ Gs; x |- p : P ~~> letin -| Gs'
 Gs; x |- (p; l:As) : (P; l:As) ~~> letin let l = x.l in -| Gs', l:As
 
 
-y notin Gs'
-x /= y
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : As ~~> e
 ||As|| = A
