@@ -144,48 +144,89 @@ Proof with auto.
       right...
 Qed.
 
-Lemma letbind_weaken : forall letin G' G F E,
+Scheme exp_mutind := Induction for exp Sort Prop
+  with letin_mutind := Induction for letin Sort Prop.
+Combined Scheme exp_letin_mutind from exp_mutind, letin_mutind.
+
+Lemma typing_letbind_weaken :
+(forall e G F E A,
+  typing (G ++ E) e A ->
+  typing (G ++ F ++ E) e A) /\
+(forall letin G' G F E,
   letbind (G ++ E) letin G' ->
   exists D, G' = D ++ G ++ E /\
-  letbind (G ++ F ++ E) letin (D ++ G ++ F ++ E).
+  letbind (G ++ F ++ E) letin (D ++ G ++ F ++ E)).
 Proof with auto.
-  induction letin; intros * Hletbind; inversion Hletbind; subst.
+  apply exp_letin_mutind; intros * H; try dependent induction H;
+                                      try solve [eapply Typ_Sub; eauto].
+  (* typing_weaken *)
+  - apply Typ_Top.
+  - apply Typ_Int.
+  - apply Typ_Var.
+    apply binds_weaken...
+  - intros * Htyping.
+    dependent induction Htyping.
+    + apply Typ_Abs.
+      rewrite app_comm_cons.
+      apply H...
+    + eapply Typ_Sub; eauto.
+  - intros * H' * Htyping.
+    dependent induction Htyping.
+    + apply Typ_App with (A := A)...
+    + eapply Typ_Sub; eauto.
+  - intros * Htyping.
+    dependent induction Htyping.
+    + apply Typ_Rcd...
+    + eapply Typ_Sub; eauto.
+  - intros * Htyping.
+    dependent induction Htyping.
+    + apply Typ_Prj...
+    + eapply Typ_Sub; eauto.
+  - intros * H' * Htyping.
+    dependent induction Htyping.
+    + apply Typ_Merge...
+    + eapply Typ_Sub; eauto.
+  - intros * H' * H'' * Htyping.
+    dependent induction Htyping.
+    + apply Typ_Switch; try rewrite app_comm_cons...
+    + eapply Typ_Sub; eauto.
+  - intros * H' * Htyping.
+    dependent induction Htyping.
+    + pose proof H _ _ F _ H0 as [D [Heq Hletbind]]. subst.
+      apply Typ_Let with (G' := D ++ G ++ F ++ E)...
+      rewrite app_assoc. apply H'. rewrite <- app_assoc...
+    + eapply Typ_Sub; eauto.
+  (* letbind_weaken *)
   - exists nil. split...
     apply LB_Id.
-  - destruct (IHletin1 G'0 G F E) as [D1 [Heq1 Hletbind1]]...
-    destruct (IHletin2 G' (D1 ++ G) F E) as [D2 [Heq2 Hletbind2]].
+  - intros * H' * Hletbind. inversion Hletbind. subst.
+    destruct (H G'0 G F E) as [D1 [Heq1 Hletbind1]]...
+    destruct (H' G' (D1 ++ G) F E) as [D2 [Heq2 Hletbind2]].
     subst. rewrite <- app_assoc... subst.
     exists (D2 ++ D1). split.
     do 2 rewrite <- app_assoc...
     apply LB_Comp with (G' := D1 ++ G ++ F ++ E)...
     rewrite <- app_assoc in Hletbind2.
     rewrite <- app_assoc...
-  - exists (x ~ A). split...
+  - intros * Hletbind. inversion Hletbind. subst.
+    exists (x ~ A). split...
     apply LB_Let.
-Admitted.
+    apply H...
+Qed.
 
-Lemma typing_weaken : forall G F E e A,
+Lemma letbind_weaken : forall letin G' G F E,
+  letbind (G ++ E) letin G' ->
+  exists D, G' = D ++ G ++ E /\
+  letbind (G ++ F ++ E) letin (D ++ G ++ F ++ E).
+Proof.
+  apply typing_letbind_weaken.
+Qed.
+
+Lemma typing_weaken : forall e G F E A,
   typing (G ++ E) e A ->
   typing (G ++ F ++ E) e A.
-Proof with eauto.
-  intros * Htyping. revert F.
-  dependent induction Htyping; intros...
-  - apply Typ_Top.
-  - apply Typ_Int.
-  - apply Typ_Var.
-    apply binds_weaken...
-  - apply Typ_Abs.
-    rewrite app_comm_cons.
-    apply IHHtyping...
-  - eapply Typ_App...
-  - apply Typ_Rcd...
-  - apply Typ_Prj...
-  - apply Typ_Merge...
-  - apply Typ_Switch; try rewrite app_comm_cons...
-  - pose proof letbind_weaken _ _ _ F _ H as [D [Heq Hletbind]]. subst.
-    apply Typ_Let with (G' := D ++ G ++ F ++ E)...
-    rewrite app_assoc. apply IHHtyping. rewrite app_assoc...
-  - eapply Typ_Sub... 
+Proof.
+  apply typing_letbind_weaken.
 Qed.
 
 Lemma typing_napp : forall Gs G P PT a e,
