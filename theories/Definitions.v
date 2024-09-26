@@ -164,6 +164,8 @@ Inductive sub : typ -> typ -> Prop :=    (* defn sub *)
 with typing : ctx -> exp -> typ -> Prop :=    (* defn typing *)
  | Typ_Top : forall (G:ctx),
      typing G e_top t_top
+ | Typ_Null : forall (G:ctx),
+     typing G e_null t_null
  | Typ_Int : forall (G:ctx),
      typing G e_int t_int
  | Typ_Var : forall (G:ctx) (x:var) (A:typ),
@@ -218,21 +220,17 @@ Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
  | Ela_Var : forall (Gs:sctx) (x:var) (As:styp),
       (binds x As Gs )  ->
      elab Gs (se_var x) As (e_var x)
- | Ela_Abs : forall (Gs:sctx) (x:var) (As:styp) (es:sexp) (Bs:styp) (A:typ) (e:exp) (B:typ),
+ | Ela_Abs : forall (Gs:sctx) (x:var) (As:styp) (es:sexp) (Bs:styp) (e:exp),
      elab  (( x , As ):: Gs )  es Bs e ->
-      (  (trans As )  = A )  ->
-      (  (trans Bs )  = B )  ->
-     elab Gs (se_abs x As es) (st_arrow As Bs) (e_abs x A e B)
+     elab Gs (se_abs x As es) (st_arrow As Bs) (e_abs x  (trans As )  e  (trans Bs ) )
  | Ela_App : forall (Gs:sctx) (es1 es2:sexp) (Bs:styp) (e1 e2:exp) (As:styp),
      elab Gs es1 (st_arrow As Bs) e1 ->
      elab Gs es2 As e2 ->
      elab Gs (se_app es1 es2) Bs (e_app e1 e2)
- | Ela_NAbs : forall (Gs:sctx) (p:npexp) (es:sexp) (P:nptyp) (Bs:styp) (x:var) (A:typ) (letin5:letin) (e:exp) (B:typ) (Gs':sctx),
+ | Ela_NAbs : forall (Gs:sctx) (p:npexp) (es:sexp) (P:nptyp) (Bs:styp) (x:var) (letin5:letin) (e:exp) (Gs':sctx),
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es Bs e ->
-      (  (ptrans P )  = A )  ->
-      (  (trans Bs )  = B )  ->
-     elab Gs (se_nabs p es) (st_narrow P Bs) (e_abs x A (e_letin letin5 e) B)
+     elab Gs (se_nabs p es) (st_narrow P Bs) (e_abs x  (ptrans P )  (e_letin letin5 e)  (trans Bs ) )
  | Ela_NApp : forall (Gs:sctx) (es:sexp) (a:narg) (Bs:styp) (e e':exp) (P:nptyp),
      elab Gs es (st_narrow P Bs) e ->
      pmatch Gs P a e' ->
@@ -243,11 +241,10 @@ with pelab : sctx -> var -> npexp -> nptyp -> letin -> sctx -> Prop :=    (* def
  | PEla_Required : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (As:styp) (P:nptyp) (letin5:letin) (Gs':sctx),
      pelab Gs x p P letin5 Gs' ->
      pelab Gs x  ( (par_required p l As) )   ( (pt_required P l As) )  (letin_composition letin5 (letin_bind l (e_prj (e_var x) l)))  (( l , As ):: Gs' ) 
- | PEla_Optional : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (es:sexp) (P:nptyp) (As:styp) (letin5:letin) (y:var) (A:typ) (e:exp) (Gs':sctx),
+ | PEla_Optional : forall (Gs:sctx) (x:var) (p:npexp) (l:var) (es:sexp) (P:nptyp) (As:styp) (letin5:letin) (y:var) (e:exp) (Gs':sctx),
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es As e ->
-      (  (trans As )  = A )  ->
-     pelab Gs x  ( (par_optional p l es) )   ( (pt_optional P l As) )  (letin_composition letin5 (letin_bind l (e_switch (e_prj (e_var x) l) y A (e_var y) t_null e)))  (( l , As ):: Gs' ) 
+     pelab Gs x  ( (par_optional p l es) )   ( (pt_optional P l As) )  (letin_composition letin5 (letin_bind l (e_switch (e_prj (e_var x) l) y  (trans As )  (e_var y) t_null e)))  (( l , As ):: Gs' ) 
 with pmatch : sctx -> nptyp -> narg -> exp -> Prop :=    (* defn pmatch *)
  | PMat_Empty : forall (Gs:sctx),
      pmatch Gs pt_empty arg_empty e_top

@@ -161,6 +161,7 @@ Proof with auto.
                                       try solve [eapply Typ_Sub; eauto].
   (* typing_weaken *)
   - apply Typ_Top.
+  - apply Typ_Null.
   - apply Typ_Int.
   - apply Typ_Var.
     apply binds_weaken...
@@ -229,45 +230,33 @@ Proof.
   apply typing_letbind_weaken.
 Qed.
 
-Lemma typing_napp : forall Gs G P PT a e,
+Lemma typing_napp : forall Gs P a e,
   pmatch Gs P a e ->
-  ctxtrans Gs = G ->
-  ptrans P = PT ->
-  typing G e PT.
+  typing (ctxtrans Gs) e (ptrans P).
 Admitted.
 
-Theorem elab_sound : forall Gs es As G e A,
+Theorem elab_sound : forall Gs es As e,
   elab Gs es As e ->
-  ctxtrans Gs = G ->
-  trans As = A ->
-  typing G e A.
+  typing (ctxtrans Gs) e (trans As).
 Proof with eauto.
-  intros Gs es. revert Gs.
-  induction es; intros * Helab HGtrans Htrans;
-                inversion Helab; subst.
-  - (* Ela_Int *)
-    apply Typ_Int.
-  - (* Ela_Var *)
-    apply Typ_Var.
-    eapply binds_ctxtrans...
-  - (* Ela_Abs *)
-    apply Typ_Abs.
-    eapply IHes...
-  - (* Ela_App *)
-    apply Typ_App with (A := trans As0).
-    { eapply IHes1... }
-    { eapply IHes2... }
-  - (* Ela_NAbs *)
-    pose proof pelab_letbind _ _ _ _ _ _
-               (ptrans P) H1 as [Fs [Heq Hlet]].
+  induction 1.
+  - apply Typ_Int.
+  - apply Typ_Var.
+    apply binds_ctxtrans...
+  - apply Typ_Abs.
+    simpl in IHelab.
+    apply IHelab.
+  - apply Typ_App with (A := trans As).
+    { apply IHelab1. }
+    { apply IHelab2. }
+  - pose proof pelab_letbind _ _ _ _ _ _
+               (ptrans P) H as [Fs [Heq Hlet]].
     apply sub_refl. subst.
-    apply Typ_Abs. eapply Typ_Let.
-    + eapply Hlet...
-    + apply typing_weaken.
-      { eapply IHes...
-        apply append_ctxtrans... }
-  - (* Ela_NApp *)
-    apply Typ_App with (A := ptrans P).
-    { eapply IHes... }
+    apply Typ_Abs. eapply Typ_Let...
+    apply typing_weaken.
+    rewrite append_ctxtrans in IHelab.
+    apply IHelab.
+  - apply Typ_App with (A := ptrans P).
+    { apply IHelab. }
     { eapply typing_napp... }
 Qed.

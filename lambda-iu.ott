@@ -277,6 +277,10 @@ by
 G |- {} : Top
 
 
+----------------- :: Null
+G |- null : Null
+
+
 ----------------- :: Int
 G |- int : Int
 
@@ -372,10 +376,8 @@ Gs |- x : As ~~> x
 
 
 Gs,x:As |- es : Bs ~~> e
-||As|| = A
-||Bs|| = B
--------------------------------------- :: Abs
-Gs |- \(x:As).es : As->Bs ~~> \x:A.e:B
+------------------------------------------------ :: Abs
+Gs |- \(x:As).es : As->Bs ~~> \x:||As||.e:||Bs||
 
 
 Gs |- es1 : As -> Bs ~~> e1
@@ -386,10 +388,8 @@ Gs |- es1 es2 : Bs ~~> e1 e2
 
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : Bs ~~> e
-||P|| = A
-||Bs|| = B
------------------------------------------- :: NAbs
-Gs |- \{p}.es : {P}->Bs ~~> \x:A.letin e:B
+-------------------------------------------------- :: NAbs
+Gs |- \{p}.es : {P}->Bs ~~> \x:||P||.letin e:||Bs||
 
 
 Gs |- es : {P} -> Bs ~~> e
@@ -416,9 +416,8 @@ Gs; x |- (p; l:As) : (P; l:As) ~~> letin let l = x.l in -| Gs', l:As
 
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : As ~~> e
-||As|| = A
------------------------------------------------------------------------------------------------------------- :: Optional
-Gs; x |- (p; l=es) : (P; l?:As) ~~> letin let l = switch x.l as y case A => y case Null => e in -| Gs', l:As
+----------------------------------------------------------------------------------------------------------------- :: Optional
+Gs; x |- (p; l=es) : (P; l?:As) ~~> letin let l = switch x.l as y case ||As|| => y case Null => e in -| Gs', l:As
 
 
 
