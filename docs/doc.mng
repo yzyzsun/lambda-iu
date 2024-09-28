@@ -48,9 +48,9 @@
 \newtheorem{example}{Example}
 \begin{example}
 \begin{mathpar}
-[[letin1]] \equiv [[ let x = z.x in ]]
+[[letin1]] \equiv [[ let x = r.x in ]]
 
-[[letin2]] \equiv [[ let y = switch z.y as y case Int => y case Null => x+1 in ]]
+[[letin2]] \equiv [[ let y = switch r.y as y case Int => y case Null => x+1 in ]]
 
 [[e0]] \equiv [[letin1 letin2]]\ [[(x+y)]] \\
 
@@ -60,14 +60,14 @@
   { [[ [], x:Int |- x+1 : Int ~~> x+1 ]] \\
     \inferrule*[Right=PEla-Required]
     { [[ [] |- 0 : Int ~~> 0 ]] \\
-      \inferrule*[Right=PEla-Empty]{ }{[[ []; z |- [] : [] ~~> id -| [] ]]}
+      \inferrule*[Right=PEla-Empty]{ }{[[ []; r |- [] : [] ~~> id -| [] ]]}
     }
-    {[[ []; z |- ([]; x:Int) : ([]; x:Int) ~~> letin1 -| [], x:Int ]]}
+    {[[ []; r |- ([]; x:Int) : ([]; x:Int) ~~> letin1 -| [], x:Int ]]}
   }
-  {[[ []; z |- ([]; x:Int; y=x+1) : ([]; x:Int; y?:Int) ~~> letin1 letin2 -| [], x:Int, y:Int ]]}
+  {[[ []; r |- ([]; x:Int; y=x+1) : ([]; x:Int; y?:Int) ~~> letin1 letin2 -| [], x:Int, y:Int ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) : {[]; x:Int; y?:Int} -> Int
-   ~~> \z: {x:Int}&{y:Int|Null} . e0 : Int ]]}
+   ~~> \r: {x:Int}&{y:Int|Null} . e0 : Int ]]}
 
 \inferrule*[Right=Ela-NApp]
 { \cdots\textsc{Ela-NAbs}\cdots \\
@@ -84,7 +84,7 @@
   {[[ [] |- ([]; x:Int; y?:Int) <> ([]; x=1; z=2) ~~> {z=2},,{x=1},,{y=null} ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) {[]; x=1; z=2} : Int
-   ~~> (\z: {x:Int}&{y:Int|Null}. e0: Int) ({x=1},,{y=null},,{z=2}) ]]}
+   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({z=2},,{x=1},,{y=null}) ]]}
 \end{mathpar}
 \end{example}
 \end{landscape}

@@ -19,7 +19,7 @@ Definition binds
 Unset Implicit Arguments.
 }}
 
-metavar var, x, y, z, l {{ tex \ell }} ::=  {{ coq nat }} {{ com variable/label }}
+metavar var, x, y, z, r, l {{ tex \ell }} ::=  {{ coq nat }} {{ com variable/label }}
 
 grammar
 
