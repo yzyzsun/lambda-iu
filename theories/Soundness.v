@@ -174,14 +174,6 @@ Proof with auto.
     apply H...
 Qed.
 
-Lemma letbind_weaken : forall letin G' G F E,
-  letbind (G ++ E) letin G' ->
-  exists D, G' = D ++ G ++ E /\
-  letbind (G ++ F ++ E) letin (D ++ G ++ F ++ E).
-Proof.
-  apply typing_letbind_weaken.
-Qed.
-
 Lemma typing_weaken : forall e G F E A,
   typing (G ++ E) e A ->
   typing (G ++ F ++ E) e A.
@@ -189,12 +181,48 @@ Proof.
   apply typing_letbind_weaken.
 Qed.
 
-Scheme elab_mutind := Induction for elab Sort Prop
-  with pelab_mutind := Induction for pelab Sort Prop
-  with pmatch_mutind := Induction for pmatch Sort Prop.
-Combined Scheme elab_pelab_pmatch_mutind from elab_mutind, pelab_mutind, pmatch_mutind.
+Lemma lookup_sub_rcd : forall T l As,
+  lookup T l As ->
+  sub (atrans T) (t_rcd l (trans As)).
+Proof with auto.
+  induction 1; simpl.
+  - apply Sub_AndR. apply sub_refl.
+  - apply Sub_AndL...
+Qed.
 
-Lemma elab_pmatch_sound :
+Lemma pmatch_sound : forall Gs e P T e',
+  pmatch Gs e P T e' ->
+  typing (ctxtrans Gs) e (atrans T) ->
+  typing (ctxtrans Gs) e' (ptrans P).
+Proof with auto.
+  induction 1; intros; simpl.
+  - (* PMat_Empty *)
+    apply Typ_Top.
+  - (* PMat_Required *)
+    apply Typ_Merge...
+    apply Typ_Rcd. apply Typ_Prj.
+    apply Typ_Sub with (A := atrans T)...
+    apply lookup_sub_rcd...
+  - (* PMat_Present *)
+    apply Typ_Merge...
+    apply Typ_Rcd. apply Typ_Prj.
+    apply Typ_Sub with (A := atrans T)...
+    apply sub_trans with (B := t_rcd l (trans As)).
+    { apply lookup_sub_rcd... }
+    { apply Sub_Rcd. apply Sub_OrL. apply sub_refl. }
+  - (* PMat_Absent *)
+    apply Typ_Merge...
+    apply Typ_Rcd.
+    apply Typ_Sub with (A := t_null).
+    { apply Typ_Null. }
+    { apply Sub_OrR. apply Sub_Null. }
+Qed.
+
+Scheme elab_mutind := Induction for elab Sort Prop
+  with pelab_mutind := Induction for pelab Sort Prop.
+Combined Scheme elab_pelab_mutind from elab_mutind, pelab_mutind.
+
+Lemma elab_pelab_sound :
 (forall Gs es As e,
   elab Gs es As e ->
   typing (ctxtrans Gs) e (trans As)) /\
@@ -205,33 +233,42 @@ Lemma elab_pmatch_sound :
   exists Fs,
   Es = Fs ++ Gs /\
   letbind (x ~ A ++ ctxtrans Gs)
-    letin (ctxtrans Fs ++ x ~ A ++ ctxtrans Gs)) /\
-(forall Gs P a e,
-  pmatch Gs P a e ->
-  typing (ctxtrans Gs) e (ptrans P)).
+    letin (ctxtrans Fs ++ x ~ A ++ ctxtrans Gs)).
 Proof with eauto.
-  apply elab_pelab_pmatch_mutind; intros *.
-  (* elab *)
-  - apply Typ_Int.
-  - intro Hbinds.
+  apply elab_pelab_mutind; intros *.
+  - (* Ela_Int *)
+    apply Typ_Int.
+  - (* Ela_Var *)
+    intro Hbinds.
     apply Typ_Var.
     apply binds_ctxtrans...
-  - intro Helab.
+  - (* Ela_Abs *)
+    intro Helab.
     apply Typ_Abs.
-  - intros Helab1 Htyping1 Helab2 Htyping2.
-    apply Typ_App with (A := trans As)...
-  - intros Hpelab IH Helab Htyping.
+  - (* Ela_NAbs *)
+    intros Hpelab IH Helab Htyping.
     destruct (IH (ptrans P)) as [Fs [Heq Hlet]].
     apply sub_refl. subst.
     apply Typ_Abs. eapply Typ_Let...
     apply typing_weaken.
     rewrite append_ctxtrans in Htyping...
-  - intros Helab Htyping Hpmatch.
-    apply Typ_App...
-  (* pelab *)
-  - exists nil. split...
+  - (* Ela_App *)
+    intros Helab1 Htyping1 Helab2 Htyping2.
+    apply Typ_App with (A := trans As)...
+  - (* Ela_NApp *)
+    intros Helab1 Htyping1 Helab2 Htyping2 Hpmatch.
+    apply Typ_App with (A := ptrans P)...
+    eapply pmatch_sound...
+  - (* Ela_NEmpty *)
+    apply Typ_Top.
+  - (* Ela_NField *)
+    intros Helab1 Htyping1 Helab2 Htyping2.
+    simpl. apply Typ_Merge... apply Typ_Rcd...
+  - (* PEla_Empty *)
+    exists nil. split...
     apply LB_Id.
-  - intros Hpelab IH * Hsub.
+  - (* PEla_Required *)
+    intros Hpelab IH * Hsub.
     specialize (IH A) as [Fs [Heq Hletbind]].
     simpl in Hsub. eapply sub_trans...
     apply Sub_AndL. apply sub_refl.
@@ -243,7 +280,8 @@ Proof with eauto.
     unfold binds. apply in_or_app. right. left...
     eapply sub_trans... simpl.
     apply Sub_AndR. apply sub_refl.
-  - intros Hpelab IH Helab Htyping * Hsub.
+  - (* PEla_Optional *)
+    intros Hpelab IH Helab Htyping * Hsub.
     specialize (IH A) as [Fs [Heq Hletbind]].
     simpl in Hsub. eapply sub_trans...
     apply Sub_AndL. apply sub_refl.
@@ -266,29 +304,11 @@ Proof with eauto.
     apply typing_weaken.
     rewrite app_assoc.
     apply typing_weaken...
-  (* pmatch *)
-  - apply Typ_Top.
-  - simpl.
-    intros Helab Htyping Hpmatch Htyping'.
-    eapply Typ_Sub. apply Typ_Merge... apply Typ_Rcd...
-    apply Sub_Top.
-  - simpl.
-    intros Hlookup Helab Htyping Hpmatch Htyping'.
-    apply Typ_Merge... apply Typ_Rcd...
-  - simpl.
-    intros Hlookup Helab Htyping Hpmatch Htyping'.
-    apply Typ_Merge... apply Typ_Rcd... eapply Typ_Sub...
-    apply Sub_OrL. apply sub_refl.
-  - simpl.
-    intros Hlookdown Hpmatch Htyping.
-    apply Typ_Merge... apply Typ_Rcd... eapply Typ_Sub.
-    { apply Typ_Null. }
-    { apply Sub_OrR. apply Sub_Null. }
 Qed.
 
 Theorem elab_sound : forall Gs es As e,
   elab Gs es As e ->
   typing (ctxtrans Gs) e (trans As).
 Proof.
-  apply elab_pmatch_sound.
+  apply elab_pelab_sound.
 Qed.

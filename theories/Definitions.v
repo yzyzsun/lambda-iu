@@ -49,29 +49,33 @@ Inductive styp : Set :=  (*r source types *)
  | st_int : styp (*r integer type *)
  | st_arrow (As:styp) (Bs:styp) (*r function type *)
  | st_narrow (P:nptyp) (Bs:styp) (*r function type with named parameters *)
+ | st_narg (T:natyp) (*r named argument type *)
 with nptyp : Set :=  (*r named parameter types *)
  | pt_empty : nptyp (*r empty *)
  | pt_required (P:nptyp) (l:var) (As:styp) (*r required parameter *)
- | pt_optional (P:nptyp) (l:var) (As:styp) (*r optional parameter *).
+ | pt_optional (P:nptyp) (l:var) (As:styp) (*r optional parameter *)
+with natyp : Set :=  (*r named argument types *)
+ | at_empty : natyp (*r empty *)
+ | at_field (T:natyp) (l:var) (As:styp) (*r field *).
 
 Definition ctx : Set := list (nat * typ).
 
 Definition sctx : Set := list (nat * styp).
 
-Inductive sexp : Set :=  (*r source expressions *)
+Inductive naexp : Set :=  (*r named arguments *)
+ | arg_empty : naexp (*r empty *)
+ | arg_field (a:naexp) (l:var) (es:sexp) (*r field *)
+with sexp : Set :=  (*r source expressions *)
  | se_int : sexp (*r integer literal *)
  | se_var (x:var) (*r variable *)
  | se_abs (x:var) (As:styp) (es:sexp) (*r abstraction *)
- | se_app (es1:sexp) (es2:sexp) (*r application *)
  | se_nabs (p:npexp) (es:sexp) (*r abstraction with named parameters *)
- | se_napp (es:sexp) (a:narg) (*r application to named arguments *)
+ | se_app (es1:sexp) (es2:sexp) (*r application *)
+ | se_narg (a:naexp) (*r named arguments *)
 with npexp : Set :=  (*r named parameters *)
  | par_empty : npexp (*r empty *)
  | par_required (p:npexp) (l:var) (As:styp) (*r required parameter *)
- | par_optional (p:npexp) (l:var) (es:sexp) (*r optional parameter *)
-with narg : Set :=  (*r named arguments *)
- | arg_empty : narg (*r empty *)
- | arg_field (a:narg) (l:var) (es:sexp) (*r field *).
+ | par_optional (p:npexp) (l:var) (es:sexp) (*r optional parameter *).
 
 (** subrules *)
 Fixpoint is_val_of_exp (e_5:exp) : Prop :=
@@ -89,18 +93,15 @@ Fixpoint is_val_of_exp (e_5:exp) : Prop :=
   | (e_letin letin5 e) => False
 end.
 
-Fixpoint remove (l : nat) (a : narg) :=
-  match a with
-    | arg_empty => arg_empty
-    | arg_field a' l' es => let a'' := remove l a' in
-                            if l =? l' then a''
-                            else arg_field a'' l' es
-  end.
-
 (** definitions *)
 
 (** funs Trans *)
-Fixpoint ptrans (x1:nptyp) : typ:=
+Fixpoint atrans (x1:natyp) : typ:=
+  match x1 with
+  | at_empty => t_top
+  | (at_field T l As) => (t_and  (atrans T )  (t_rcd l  (trans As ) ))
+end
+with ptrans (x1:nptyp) : typ:=
   match x1 with
   | pt_empty => t_top
   | (pt_required P l As) => (t_and  (ptrans P )  (t_rcd l  (trans As ) ))
@@ -111,6 +112,7 @@ with trans (x1:styp) : typ:=
   | st_int => t_int
   | (st_arrow As Bs) => (t_arrow  (trans As )   (trans Bs ) )
   | (st_narrow P Bs) => (t_arrow  (ptrans P )   (trans Bs ) )
+  | (st_narg T) =>  (atrans T ) 
 end.
 
 (** definitions *)
@@ -223,18 +225,25 @@ Inductive elab : sctx -> sexp -> styp -> exp -> Prop :=    (* defn elab *)
  | Ela_Abs : forall (Gs:sctx) (x:var) (As:styp) (es:sexp) (Bs:styp) (e:exp),
      elab  (( x , As ):: Gs )  es Bs e ->
      elab Gs (se_abs x As es) (st_arrow As Bs) (e_abs x  (trans As )  e  (trans Bs ) )
- | Ela_App : forall (Gs:sctx) (es1 es2:sexp) (Bs:styp) (e1 e2:exp) (As:styp),
-     elab Gs es1 (st_arrow As Bs) e1 ->
-     elab Gs es2 As e2 ->
-     elab Gs (se_app es1 es2) Bs (e_app e1 e2)
  | Ela_NAbs : forall (Gs:sctx) (p:npexp) (es:sexp) (P:nptyp) (Bs:styp) (x:var) (letin5:letin) (e:exp) (Gs':sctx),
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es Bs e ->
      elab Gs (se_nabs p es) (st_narrow P Bs) (e_abs x  (ptrans P )  (e_letin letin5 e)  (trans Bs ) )
- | Ela_NApp : forall (Gs:sctx) (es:sexp) (a:narg) (Bs:styp) (e e':exp) (P:nptyp),
-     elab Gs es (st_narrow P Bs) e ->
-     pmatch Gs P a e' ->
-     elab Gs (se_napp es a) Bs (e_app e e')
+ | Ela_App : forall (Gs:sctx) (es1 es2:sexp) (Bs:styp) (e1 e2:exp) (As:styp),
+     elab Gs es1 (st_arrow As Bs) e1 ->
+     elab Gs es2 As e2 ->
+     elab Gs (se_app es1 es2) Bs (e_app e1 e2)
+ | Ela_NApp : forall (Gs:sctx) (es1 es2:sexp) (Bs:styp) (e1 e2':exp) (P:nptyp) (T:natyp) (e2:exp),
+     elab Gs es1 (st_narrow P Bs) e1 ->
+     elab Gs es2 (st_narg T) e2 ->
+     pmatch Gs e2 P T e2' ->
+     elab Gs (se_app es1 es2) Bs (e_app e1 e2')
+ | Ela_NEmpty : forall (Gs:sctx),
+     elab Gs (se_narg arg_empty) (st_narg at_empty) e_top
+ | Ela_NField : forall (Gs:sctx) (a:naexp) (l:var) (es:sexp) (T:natyp) (As:styp) (e' e:exp),
+     elab Gs (se_narg a) (st_narg T) e' ->
+     elab Gs es As e ->
+     elab Gs (se_narg (arg_field a l es)) (st_narg (at_field T l As)) (e_merge e' (e_rcd l e))
 with pelab : sctx -> var -> npexp -> nptyp -> letin -> sctx -> Prop :=    (* defn pelab *)
  | PEla_Empty : forall (Gs:sctx) (x:var),
      pelab Gs x par_empty pt_empty letin_identity Gs
@@ -245,41 +254,35 @@ with pelab : sctx -> var -> npexp -> nptyp -> letin -> sctx -> Prop :=    (* def
      pelab Gs x p P letin5 Gs' ->
      elab Gs' es As e ->
      pelab Gs x  ( (par_optional p l es) )   ( (pt_optional P l As) )  (letin_composition letin5 (letin_bind l (e_switch (e_prj (e_var x) l) y  (trans As )  (e_var y) t_null e)))  (( l , As ):: Gs' ) 
-with pmatch : sctx -> nptyp -> narg -> exp -> Prop :=    (* defn pmatch *)
- | PMat_Empty : forall (Gs:sctx),
-     pmatch Gs pt_empty arg_empty e_top
- | PMat_Extra : forall (Gs:sctx) (a:narg) (l:var) (es:sexp) (e' e:exp) (As:styp),
-     elab Gs es As e ->
-     pmatch Gs pt_empty a e' ->
-     pmatch Gs pt_empty  ( (arg_field a l es) )  (e_merge e' (e_rcd l e))
- | PMat_Required : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e' e:exp) (es:sexp),
-     lookup a l es ->
-     elab Gs es As e ->
-     pmatch Gs P  (remove l a )  e' ->
-     pmatch Gs  ( (pt_required P l As) )  a (e_merge e' (e_rcd l e))
- | PMat_Present : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e' e:exp) (es:sexp),
-     lookup a l es ->
-     elab Gs es As e ->
-     pmatch Gs P  (remove l a )  e' ->
-     pmatch Gs  ( (pt_optional P l As) )  a (e_merge e' (e_rcd l e))
- | PMat_Absent : forall (Gs:sctx) (P:nptyp) (l:var) (As:styp) (a:narg) (e':exp),
-     lookdown a l ->
-     pmatch Gs P a e' ->
-     pmatch Gs  ( (pt_optional P l As) )  a (e_merge e' (e_rcd l e_null))
-with lookup : narg -> var -> sexp -> Prop :=    (* defn lookup *)
- | LU_Present : forall (a:narg) (l:var) (es:sexp),
-     lookdown a l ->
-     lookup  ( (arg_field a l es) )  l es
- | LU_Absent : forall (a:narg) (l':var) (es':sexp) (l:var) (es:sexp),
+with pmatch : sctx -> exp -> nptyp -> natyp -> exp -> Prop :=    (* defn pmatch *)
+ | PMat_Empty : forall (Gs:sctx) (e:exp) (T:natyp),
+     pmatch Gs e pt_empty T e_top
+ | PMat_Required : forall (Gs:sctx) (e:exp) (P:nptyp) (l:var) (As:styp) (T:natyp) (e':exp),
+     lookup T l As ->
+     pmatch Gs e P T e' ->
+     pmatch Gs e  ( (pt_required P l As) )  T (e_merge e' (e_rcd l (e_prj e l)))
+ | PMat_Present : forall (Gs:sctx) (e:exp) (P:nptyp) (l:var) (As:styp) (T:natyp) (e':exp),
+     lookup T l As ->
+     pmatch Gs e P T e' ->
+     pmatch Gs e  ( (pt_optional P l As) )  T (e_merge e' (e_rcd l (e_prj e l)))
+ | PMat_Absent : forall (Gs:sctx) (e:exp) (P:nptyp) (l:var) (As:styp) (T:natyp) (e':exp),
+     lookdown T l ->
+     pmatch Gs e P T e' ->
+     pmatch Gs e  ( (pt_optional P l As) )  T (e_merge e' (e_rcd l e_null))
+with lookup : natyp -> var -> styp -> Prop :=    (* defn lookup *)
+ | LU_Present : forall (T:natyp) (l:var) (As:styp),
+     lookdown T l ->
+     lookup  ( (at_field T l As) )  l As
+ | LU_Absent : forall (T:natyp) (l':var) (Bs:styp) (l:var) (As:styp),
       l' <> l  ->
-     lookup a l es ->
-     lookup  ( (arg_field a l' es') )  l es
-with lookdown : narg -> var -> Prop :=    (* defn lookdown *)
+     lookup T l As ->
+     lookup  ( (at_field T l' Bs) )  l As
+with lookdown : natyp -> var -> Prop :=    (* defn lookdown *)
  | LD_Empty : forall (l:var),
-     lookdown arg_empty l
- | LD_Absent : forall (a:narg) (l':var) (es:sexp) (l:var),
+     lookdown at_empty l
+ | LD_Absent : forall (T:natyp) (l':var) (As:styp) (l:var),
       l' <> l  ->
-     lookdown a l ->
-     lookdown  ( (arg_field a l' es) )  l.
+     lookdown T l ->
+     lookdown  ( (at_field T l' As) )  l.
 
 
