@@ -31,7 +31,16 @@
 \end{align*}
 
 \section*{Syntax of \source\footnote{\source = Unnamed Arguments Encoded Named Arguments} (source)}
-\nonterms{styp,nptyp,sexp,npexp,narg}
+\begin{align*}
+  &\text{Types}                 &[[As]],[[Bs]] ::=&~ [[Int]] ~|~ [[As -> Bs]] ~|~ [[{P} -> Bs]] ~|~ [[{T}]] \\
+  &\text{Named parameter types} &        [[P]] ::=&~ [[ [] ]] ~|~ [[P; l:As]] ~|~ [[P; l?:As]] \\
+  &\text{Named argument types}  &        [[T]] ::=&~ [[ [] ]] ~|~ [[T; l:As]] \\
+  &\text{Expressions}           &       [[es]] ::=&~ [[int]] ~|~ [[x]] ~|~ [[\(x:As). es]] ~|~ [[\{p}. es]] ~|~ [[es1 es2]] ~|~ [[{a}]] \\
+  &\text{Named parameters}      &        [[p]] ::=&~ [[ [] ]] ~|~ [[p; l:As]] ~|~ [[p; l=es]] \\
+  &\text{Named arguments}       &        [[a]] ::=&~ [[ [] ]] ~|~ [[a; l=es]] \\
+\end{align*}
+
+\newpage
 
 \section*{From \source to \target}
 \ottdefnsSource
@@ -71,20 +80,21 @@
 
 \inferrule*[Right=Ela-NApp]
 { \cdots\textsc{Ela-NAbs}\cdots \\
+  [[ [] |- {[]; x=1; z=2} : {[]; x:Int; z:Int} ~~> e1 ]] \\
   \inferrule*[Right=PMat-Absent]
-  {[[ [] |- 1 : Int ~~> 1 ]] \\
-   \inferrule*[Right=PMat-Required]
-   {\inferrule*[Right=PMat-Extra]
-    {[[ [] |- 2 : Int ~~> 2 ]] \\
-     \inferrule*[Right=PMat-Empty]{ }{[[ [] |- [] <> [] ~~> {} ]]}}
-    {[[ [] |- [] <> ([];z=2) ~~> {z=2} ]]}
+  {\inferrule*[Right=PMat-Required]
+   {\inferrule*[Right=PMat-Empty]
+    { }
+    {[[ []; e1 |- [] <> ([]; x:Int; z:Int) ~~> {} ]]}
    }
-   {[[ [] |- ([]; x:Int) <> ([]; x=1; z=2) ~~> {z=2},,{x=1} ]]}
+   {[[ []; e1 |- ([]; x:Int) <> ([]; x:Int; z:Int) ~~> {},,{x=e1.x} ]]}
   }
-  {[[ [] |- ([]; x:Int; y?:Int) <> ([]; x=1; z=2) ~~> {z=2},,{x=1},,{y=null} ]]}
+  {[[ []; e1 |- ([]; x:Int; y?:Int) <> ([]; x:Int; z:Int) ~~> {},,{x=e1.x},,{y=null} ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) {[]; x=1; z=2} : Int
-   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({z=2},,{x=1},,{y=null}) ]]}
+   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({},,{x=e1.x},,{y=null}) ]]}
+
+[[e1]] \equiv [[ {[]; x=1; z=2} ]]
 \end{mathpar}
 \end{example}
 \end{landscape}

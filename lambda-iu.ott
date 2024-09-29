@@ -78,6 +78,7 @@ styp, As {{ tex \mathcal{A} }}, Bs {{ tex \mathcal{B} }} :: 'st_' ::= {{ com sou
   | Int         ::  :: int    {{ com integer type }} {{ tex \mathbb{Z} }}
   | As -> Bs    ::  :: arrow  {{ com function type }}
   | { P } -> Bs ::  :: narrow {{ com function type with named parameters }}
+  | { T }       ::  :: narg   {{ com named argument type }}
   | ( As )      :: S:: paren  {{ coq ([[As]]) }}
 
 nptyp, P {{ tex \mathcal{P} }} :: 'pt_' ::= {{ com named parameter types }}
@@ -86,16 +87,20 @@ nptyp, P {{ tex \mathcal{P} }} :: 'pt_' ::= {{ com named parameter types }}
   | P ; l ? : As ::  :: optional {{ com optional parameter }}
   | ( P )        :: S:: paren    {{ coq ([[P]]) }}
 
+natyp, T {{ tex \mathcal{K} }} :: 'at_' ::= {{ com named argument types }}
+  | []           ::  :: empty    {{ com empty }} {{ tex \cdot }}
+  | T ; l : As   ::  :: field    {{ com field }}
+  | ( T )        :: S:: paren    {{ coq ([[T]]) }}
+
 sexp, es {{ tex \epsilon }} :: 'se_' ::= {{ com source expressions }}
   | int               ::  :: int   {{ com integer literal }} {{ tex n }}
   | x                 ::  :: var   {{ com variable }}
   | \ ( x : As ) . es ::  :: abs   {{ com abstraction }}
                                    {{ tex [[\]]([[x]]\!:\![[As]]).\;[[es]] }}
-  | es1 es2           ::  :: app   {{ com application }}
   | \ { p } . es      ::  :: nabs  {{ com abstraction with named parameters }}
                                    {{ tex [[\]]\{[[p]]\}.\;[[es]] }}
-  | es { a }          ::  :: napp  {{ com application to named arguments }}
-                                   {{ tex [[es]]\,\{[[a]]\} }}
+  | es1 es2           ::  :: app   {{ com application }}
+  | { a }             ::  :: narg  {{ com named arguments }}
   | ( es )            :: S:: paren {{ coq ([[es]]) }}
   | 0                 :: S:: zero  {{ coq }}
   | 1                 :: S:: one   {{ coq }}
@@ -108,10 +113,9 @@ npexp, p {{ tex \rho }} :: 'par_' ::= {{ com named parameters }}
   | p ; l = es ::  :: optional {{ com optional parameter }}
   | ( p )      :: S:: paren    {{ coq ([[p]]) }}
 
-narg, a {{ tex \alpha }} :: 'arg_' ::= {{ com named arguments }}
+naexp, a {{ tex \kappa }} :: 'arg_' ::= {{ com named arguments }}
   | []         ::  :: empty   {{ com empty }} {{ tex \cdot }}
   | a ; l = es ::  :: field   {{ com field }}
-  | a \\ l     :: M:: removal {{ com removal }} {{ coq (remove[[l]][[a]]) }}
   | ( a )      :: S:: paren   {{ coq ([[a]]) }}
 
 sctx, Gs {{ tex \Delta }} :: 'sctx_' ::= {{ com typing context }} {{ coq list (nat * styp) }}
@@ -131,7 +135,6 @@ terminals :: 'terminals_' ::=
   | &    ::  :: and        {{ tex \land  }}
   | |    ::  :: or         {{ tex \lor }}
   | ||   ::  :: pipe       {{ tex | }}
-  | \\   ::  :: backslash  {{ tex \backslash }}
   | <>   ::  :: diamond    {{ tex \,\diamond\, }}
   | /=   ::  :: neq        {{ tex \neq }}
   | ,,   ::  :: merge      {{ tex \bbcomma }}
@@ -159,17 +162,6 @@ subrules
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-embed
-{{ coq
-Fixpoint remove (l : nat) (a : narg) :=
-  match a with
-    | arg_empty => arg_empty
-    | arg_field a' l' es => let a'' := remove l a' in
-                            if l =? l' then a''
-                            else arg_field a'' l' es
-  end.
-}}
-
 funs
 Trans ::=
 
@@ -180,6 +172,7 @@ by
 ||Int|| === Int
 ||As -> Bs|| === ||As|| -> ||Bs||
 ||{P} -> Bs|| === ||P|| -> ||Bs||
+||{T}|| === |T|
 
 fun
 || P || :: A :: ptrans
@@ -188,6 +181,14 @@ by
 ||[]|| === Top
 ||P; l:As|| === ||P|| & { l: ||As|| }
 ||P; l?:As|| === ||P|| & { l: ||As|| | Null }
+
+fun
+| T | :: A :: atrans
+{{ com Argument type translation }}
+{{ tex |[[T]]| }}
+by
+|[]| === Top
+|T; l:As| === |T| & { l: ||As|| }
 
 funs
 CtxTrans ::=
@@ -380,22 +381,33 @@ Gs,x:As |- es : Bs ~~> e
 Gs |- \(x:As).es : As->Bs ~~> \x:||As||.e:||Bs||
 
 
-Gs |- es1 : As -> Bs ~~> e1
-Gs |- es2 : As ~~> e2
----------------------------- :: App
-Gs |- es1 es2 : Bs ~~> e1 e2
-
-
 Gs; x |- p : P ~~> letin -| Gs'
 Gs' |- es : Bs ~~> e
 -------------------------------------------------- :: NAbs
 Gs |- \{p}.es : {P}->Bs ~~> \x:||P||.letin e:||Bs||
 
 
-Gs |- es : {P} -> Bs ~~> e
-Gs |- P <> a ~~> e'
--------------------------- :: NApp
-Gs |- es {a} : Bs ~~> e e'
+Gs |- es1 : As -> Bs ~~> e1
+Gs |- es2 : As ~~> e2
+---------------------------- :: App
+Gs |- es1 es2 : Bs ~~> e1 e2
+
+
+Gs |- es1 : {P} -> Bs ~~> e1
+Gs |- es2 : {T} ~~> e2
+Gs; e2 |- P <> T ~~> e2'
+----------------------------- :: NApp
+Gs |- es1 es2 : Bs ~~> e1 e2'
+
+
+------------------------ :: NEmpty
+Gs |- {[]} : {[]} ~~> {}
+
+
+Gs |- {a} : {T} ~~> e'
+Gs |- es : As ~~> e
+------------------------------------------- :: NField
+Gs |- {a; l = es} : {T; l:As} ~~> e',,{l=e}
 
 
 
@@ -422,61 +434,56 @@ Gs; x |- (p; l=es) : (P; l?:As) ~~> letin let l = switch x.l as y case ||As|| =>
 
 
 defn
-Gs |- P <> a ~~> e :: :: pmatch :: PMat_
+Gs ; e |- P <> T ~~> e' :: :: pmatch :: PMat_
 {{ com Parameter matching }}
+{{ tex [[Gs]][[|-]]_{\!\!\!\![[e]]}\:\:[[P]][[<>]][[T]][[~~>]][[e']] }}
 by
 
---------------------- :: Empty
-Gs |- [] <> [] ~~> {}
+----------------------- :: Empty
+Gs; e |- [] <> T ~~> {}
 
 
-Gs |- es : As ~~> e
-Gs |- [] <> a ~~> e'
------------------------------------ :: Extra
-Gs |- [] <> (a; l=es) ~~> e',,{l=e}
+T.l => As
+Gs; e |- P <> T ~~> e'
+--------------------------------------- :: Required
+Gs; e |- (P; l:As) <> T ~~> e',,{l=e.l}
 
 
-a.l => es
-Gs |- es : As ~~> e
-Gs |- P <> a\\l ~~> e'
----------------------------------- :: Required
-Gs |- (P; l:As) <> a ~~> e',,{l=e}
+T.l => As
+Gs; e |- P <> T ~~> e'
+---------------------------------------- :: Present
+Gs; e |- (P; l?:As) <> T ~~> e',,{l=e.l}
 
 
-a.l => es
-Gs |- es : As ~~> e
-Gs |- P <> a\\l ~~> e'
------------------------------------ :: Present
-Gs |- (P; l?:As) <> a ~~> e',,{l=e}
-
-
-a.l =/>
-Gs |- P <> a ~~> e'
--------------------------------------- :: Absent
-Gs |- (P; l?:As) <> a ~~> e',,{l=null}
+T.l =/>
+Gs; e |- P <> T ~~> e'
+----------------------------------------- :: Absent
+Gs; e |- (P; l?:As) <> T ~~> e',,{l=null}
 
 
 
 defn
-a . l => es :: :: lookup :: LU_
+T . l => As :: :: lookup :: LU_
 {{ com Successful lookup }}
+{{ tex [[T]]::[[l]][[=>]][[As]] }}
 by
 
-a.l =/>
+T.l =/>
 ------------------- :: Present
-(a; l = es).l => es
+(T; l : As).l => As
 
 
 l' /= l
-a.l => es
+T.l => As
 --------------------- :: Absent
-(a; l' = es').l => es
+(T; l' : Bs).l => As
 
 
 
 defn
-a . l =/> :: :: lookdown :: LD_
+T . l =/> :: :: lookdown :: LD_
 {{ com Failed lookup }}
+{{ tex [[T]]::[[l]][[=/>]] }}
 by
 
 -------- :: Empty
@@ -484,6 +491,6 @@ by
 
 
 l' /= l
-a.l =/>
+T.l =/>
 ------------------ :: Absent
-(a; l' = es).l =/>
+(T; l' : As).l =/>
