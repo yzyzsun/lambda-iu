@@ -43,7 +43,7 @@ exp, e :: 'e_' ::= {{ com expressions }}
   | x                ::  :: var    {{ com variable }}
   | \ x : A . e : B  ::  :: abs    {{ com abstraction }} {{ tex [[\]][[x]]\!:\![[A]].\;[[e]]\!:\![[B]] }}
   | e1 e2            ::  :: app    {{ com application }}
-  | { l = e }        ::  :: rcd    {{ com record }}
+  | { l : A = e }    ::  :: rcd    {{ com record }}
   | e . l            ::  :: prj    {{ com projection }}
   | e1 ,, e2         ::  :: merge  {{ com merging }}
   | switch e0 as x case A => e1 case B => e2
@@ -60,7 +60,7 @@ val, v :: 'v_' ::= {{ com values }}
   | null             ::  :: null
   | int              ::  :: int
   | \ x : A . e : B  ::  :: abs
-  | { l = v }        ::  :: rcd
+  | { l : A = v }    ::  :: rcd
   | v1 ,, v2         ::  :: merge
 
 letin :: 'letin_' ::= {{ com let-in bindings }}
@@ -304,7 +304,7 @@ G |- e1 e2 : B
 
 G |- e : A
 ----------------------- :: Rcd
-G |- {l=e} : {l:A}
+G |- {l:A=e} : {l:A}
 
 
 G |- e : {l:A}
@@ -406,8 +406,8 @@ Gs |- {[]} : {[]} ~~> {}
 
 Gs |- {a} : {T} ~~> e'
 Gs |- es : As ~~> e
-------------------------------------------- :: NField
-Gs |- {a; l = es} : {T; l:As} ~~> e',,{l=e}
+-------------------------------------------------- :: NField
+Gs |- {a; l = es} : {T; l:As} ~~> e',,{l:||As||=e}
 
 
 
@@ -445,20 +445,20 @@ Gs; e |- [] <> T ~~> {}
 
 T.l => As
 Gs; e |- P <> T ~~> e'
---------------------------------------- :: Required
-Gs; e |- (P; l:As) <> T ~~> e',,{l=e.l}
+---------------------------------------------- :: Required
+Gs; e |- (P; l:As) <> T ~~> e',,{l:||As||=e.l}
 
 
 T.l => As
 Gs; e |- P <> T ~~> e'
----------------------------------------- :: Present
-Gs; e |- (P; l?:As) <> T ~~> e',,{l=e.l}
+---------------------------------------------------- :: Present
+Gs; e |- (P; l?:As) <> T ~~> e',,{l:||As|||Null=e.l}
 
 
 T.l =/>
 Gs; e |- P <> T ~~> e'
------------------------------------------ :: Absent
-Gs; e |- (P; l?:As) <> T ~~> e',,{l=null}
+----------------------------------------------------- :: Absent
+Gs; e |- (P; l?:As) <> T ~~> e',,{l:||As|||Null=null}
 
 
 

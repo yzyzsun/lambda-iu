@@ -25,8 +25,8 @@
 \section*{Syntax of \target (target)}
 \begin{align*}
   &\text{Types}          &[[A]],[[B]] ::=&~ [[Top]] ~|~ [[Bot]] ~|~ [[Null]] ~|~ [[Int]] ~|~ [[A -> B]] ~|~ [[{l : A}]] ~|~ [[A & B]] ~|~ [[A | B]] \\
-  &\text{Expressions}    &      [[e]] ::=&~ [[{}]] ~|~ [[null]] ~|~ [[int]] ~|~ [[x]] ~|~ [[\x:A. e:B]] ~|~ [[e1 e2]] ~|~ [[{l = e}]] ~|~ [[e.l]] ~|~ [[e1 ,, e2]] ~|~ \\
-  &                      &                     &~ [[switch e0 as x case A => e1 case B => e2]] ~|~ [[letin e]] \\
+  &\text{Expressions}    &      [[e]] ::=&~ [[{}]] ~|~ [[null]] ~|~ [[int]] ~|~ [[x]] ~|~ [[\x:A. e:B]] ~|~ [[e1 e2]] ~|~ [[{l : A = e}]] ~|~ [[e.l]] \\
+  &                      &              |&~ [[e1 ,, e2]] ~|~ [[switch e0 as x case A => e1 case B => e2]] ~|~ [[letin e]] \\
   &\text{Let-in bindings}&  [[letin]] ::=&~ [[let x = e in]] ~|~ [[letin1 letin2]] ~|~ [[id]] \\
 \end{align*}
 
@@ -87,12 +87,12 @@
     { }
     {[[ []; e1 |- [] <> ([]; x:Int; z:Int) ~~> {} ]]}
    }
-   {[[ []; e1 |- ([]; x:Int) <> ([]; x:Int; z:Int) ~~> {},,{x=e1.x} ]]}
+   {[[ []; e1 |- ([]; x:Int) <> ([]; x:Int; z:Int) ~~> {},,{x:Int=e1.x} ]]}
   }
-  {[[ []; e1 |- ([]; x:Int; y?:Int) <> ([]; x:Int; z:Int) ~~> {},,{x=e1.x},,{y=null} ]]}
+  {[[ []; e1 |- ([]; x:Int; y?:Int) <> ([]; x:Int; z:Int) ~~> {},,{x:Int=e1.x},,{y:Null=null} ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) {[]; x=1; z=2} : Int
-   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({},,{x=e1.x},,{y=null}) ]]}
+   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({},,{x:Int=e1.x},,{y:Null=null}) ]]}
 
 [[e1]] \equiv [[ {[]; x=1; z=2} ]]
 \end{mathpar}
