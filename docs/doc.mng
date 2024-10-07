@@ -30,7 +30,7 @@
   &\text{Let-in bindings}&  [[letin]] ::=&~ [[let x = e in]] ~|~ [[letin1 letin2]] ~|~ [[id]] \\
 \end{align*}
 
-\section*{Syntax of \source\footnote{\source = Unnamed Arguments Encoded Named Arguments} (source)}
+\section*{Syntax of \source\footnote{\source = Unnamed Arguments Extended with Named Arguments} (source)}
 \begin{align*}
   &\text{Types}                 &[[As]],[[Bs]] ::=&~ [[Int]] ~|~ [[As -> Bs]] ~|~ [[{P} -> Bs]] ~|~ [[{T}]] \\
   &\text{Named parameter types} &        [[P]] ::=&~ [[ [] ]] ~|~ [[P; l:As]] ~|~ [[P; l?:As]] \\
@@ -57,9 +57,9 @@
 \newtheorem{example}{Example}
 \begin{example}
 \begin{mathpar}
-[[letin1]] \equiv [[ let x = r.x in ]]
+[[letin1]] \equiv [[ let x = args.x in ]]
 
-[[letin2]] \equiv [[ let y = switch r.y as y case Int => y case Null => x+1 in ]]
+[[letin2]] \equiv [[ let y = switch args.y as y case Int => y case Null => x+1 in ]]
 
 [[e0]] \equiv [[letin1 letin2]]\ [[(x+y)]] \\
 
@@ -69,14 +69,14 @@
   { [[ [], x:Int |- x+1 : Int ~~> x+1 ]] \\
     \inferrule*[Right=PEla-Required]
     { [[ [] |- 0 : Int ~~> 0 ]] \\
-      \inferrule*[Right=PEla-Empty]{ }{[[ []; r |- [] : [] ~~> id -| [] ]]}
+      \inferrule*[Right=PEla-Empty]{ }{[[ []; args |- [] : [] ~~> id -| [] ]]}
     }
-    {[[ []; r |- ([]; x:Int) : ([]; x:Int) ~~> letin1 -| [], x:Int ]]}
+    {[[ []; args |- ([]; x:Int) : ([]; x:Int) ~~> letin1 -| [], x:Int ]]}
   }
-  {[[ []; r |- ([]; x:Int; y=x+1) : ([]; x:Int; y?:Int) ~~> letin1 letin2 -| [], x:Int, y:Int ]]}
+  {[[ []; args |- ([]; x:Int; y=x+1) : ([]; x:Int; y?:Int) ~~> letin1 letin2 -| [], x:Int, y:Int ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) : {[]; x:Int; y?:Int} -> Int
-   ~~> \r: {x:Int}&{y:Int|Null} . e0 : Int ]]}
+   ~~> \args: {x:Int}&{y:Int|Null} . e0 : Int ]]}
 
 \inferrule*[Right=Ela-NApp]
 { \cdots\textsc{Ela-NAbs}\cdots \\
@@ -92,7 +92,7 @@
   {[[ []; e1 |- ([]; x:Int; y?:Int) <> ([]; x:Int; z:Int) ~~> {},,{x:Int=e1.x},,{y:Null=null} ]]}
 }
 {[[ [] |- (\{[]; x:Int; y=x+1}. x+y) {[]; x=1; z=2} : Int
-   ~~> (\r: {x:Int}&{y:Int|Null}. e0: Int) ({},,{x:Int=e1.x},,{y:Null=null}) ]]}
+   ~~> (\args: {x:Int}&{y:Int|Null}. e0: Int) ({},,{x:Int=e1.x},,{y:Null=null}) ]]}
 
 [[e1]] \equiv [[ {[]; x=1; z=2} ]]
 \end{mathpar}

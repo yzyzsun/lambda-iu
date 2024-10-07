@@ -19,7 +19,7 @@ Definition binds
 Unset Implicit Arguments.
 }}
 
-metavar var, x, y, z, r, l {{ tex \ell }} ::=  {{ coq nat }} {{ com variable/label }}
+metavar var, x, y, z, args, l {{ tex \ell }} ::=  {{ coq nat }} {{ com variable/label }}
 
 grammar
 
@@ -76,7 +76,7 @@ ctx, G {{ tex \Gamma }} :: 'ctx_' ::= {{ com typing context }} {{ coq list (nat 
 
 styp, As {{ tex \mathcal{A} }}, Bs {{ tex \mathcal{B} }} :: 'st_' ::= {{ com source types }}
   | Int         ::  :: int    {{ com integer type }} {{ tex \mathbb{Z} }}
-  | As -> Bs    ::  :: arrow  {{ com function type }}
+  | As -> Bs    ::  :: arrow  {{ com function type }} {{ tex ([[As]])[[->]][[Bs]] }}
   | { P } -> Bs ::  :: narrow {{ com function type with named parameters }}
   | { T }       ::  :: narg   {{ com named argument type }}
   | ( As )      :: S:: paren  {{ coq ([[As]]) }}
@@ -225,10 +225,10 @@ Null <: Null
 Int <: Int
 
 
-B1 <: A1
-A2 <: B2
+A2 <: A1
+B1 <: B2
 ------------------------ :: Arrow
-A1 -> A2 <: B1 -> B2
+A1 -> B1 <: A2 -> B2
 
 
 A <: B
@@ -413,7 +413,7 @@ Gs |- {a; l = es} : {T; l:As} ~~> e',,{l:||As||=e}
 
 defn
 Gs ; x |- p : P ~~> letin -| Gs' :: :: pelab :: PEla_
-{{ com Parameter elaboration }}
+{{ com Named parameter elaboration }}
 {{ tex [[Gs]][[|-]]_{\!\!\!\![[x]]}\:\:[[p]][[:]][[P]][[~~>]][[letin]][[-|]][[Gs']] }}
 by
 
@@ -435,7 +435,7 @@ Gs; x |- (p; l=es) : (P; l?:As) ~~> letin let l = switch x.l as y case ||As|| =>
 
 defn
 Gs ; e |- P <> T ~~> e' :: :: pmatch :: PMat_
-{{ com Parameter matching }}
+{{ com Call site rewriting }}
 {{ tex [[Gs]][[|-]]_{\!\!\!\![[e]]}\:\:[[P]][[<>]][[T]][[~~>]][[e']] }}
 by
 

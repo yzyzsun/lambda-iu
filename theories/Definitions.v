@@ -136,10 +136,10 @@ Inductive sub : typ -> typ -> Prop :=    (* defn sub *)
      sub t_null t_null
  | Sub_Int : 
      sub t_int t_int
- | Sub_Arrow : forall (A1 A2 B1 B2:typ),
-     sub B1 A1 ->
-     sub A2 B2 ->
-     sub (t_arrow A1 A2) (t_arrow B1 B2)
+ | Sub_Arrow : forall (A1 B1 A2 B2:typ),
+     sub A2 A1 ->
+     sub B1 B2 ->
+     sub (t_arrow A1 B1) (t_arrow A2 B2)
  | Sub_Rcd : forall (l:var) (A B:typ),
      sub A B ->
      sub (t_rcd l A) (t_rcd l B)
