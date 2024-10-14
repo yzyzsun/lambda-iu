@@ -28,16 +28,16 @@ COQC theories/Soundness.v
 | Definition / Theorem             | Paper       | Coq File        | Coq Name              |
 | -------------------------------- | ----------- | --------------- | --------------------- |
 | Syntax of λᵢᵤ                    | Section 4.1 | `Definitions.v` | `Inductive typ/exp`   |
-| Subtyping of λᵢᵤ                 | Fig. 2      | `Definitions.v` | `Inductive sub`       |
+| Subtyping of λᵢᵤ                 | Fig. 3      | `Definitions.v` | `Inductive sub`       |
 | Subtyping reflexivity            | Theorem 1   | `Soundness.v`   | `Theorem sub_refl`    |
 | Subtyping transitivity           | Theorem 2   | `Soundness.v`   | `Theorem sub_trans`   |
-| Typing of λᵢᵤ                    | Fig. 3      | `Definitions.v` | `Inductive typing`    |
+| Typing of λᵢᵤ                    | Fig. 4      | `Definitions.v` | `Inductive typing`    |
 | Syntax of Uᴀᴇɴᴀ                  | Section 4.2 | `Definitions.v` | `Inductive styp/sexp` |
-| Elaboration                      | Fig. 4      | `Definitions.v` | `Inductive elab`      |
-| Named parameter elaboration      | Fig. 4      | `Definitions.v` | `Inductive pelab`     |
-| Call site rewriting              | Fig. 5      | `Definitions.v` | `Inductive pmatch`    |
-| Successful lookup                | Fig. 5      | `Definitions.v` | `Inductive lookup`    |
-| Failed lookup                    | Fig. 5      | `Definitions.v` | `Inductive lookdown`  |
+| Elaboration                      | Fig. 5      | `Definitions.v` | `Inductive elab`      |
+| Named parameter elaboration      | Fig. 5      | `Definitions.v` | `Inductive pelab`     |
+| Call site rewriting              | Fig. 6      | `Definitions.v` | `Inductive pmatch`    |
+| Successful lookup                | Appendix D  | `Definitions.v` | `Inductive lookup`    |
+| Failed lookup                    | Appendix D  | `Definitions.v` | `Inductive lookdown`  |
 | Soundness of call site rewriting | Theorem 5   | `Soundness.v`   | `Lemma pmatch_sound`  |
 | Soundness of elaboration         | Theorem 6   | `Soundness.v`   | `Theorem elab_sound`  |
 
