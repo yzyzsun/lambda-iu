@@ -25,6 +25,16 @@ COQC theories/Definitions.v
 COQC theories/Soundness.v
 ```
 
+If you want to build the proofs from scratch (e.g. you modified `lambda-iu.ott` or ran `make clean`), you need to install [Ott](https://github.com/ott-lang/ott) as well. The easiest way to install Ott is also via opam:
+
+```
+$ opam repo add coq-extra-dev https://coq.inria.fr/opam/extra-dev
+$ opam install ott
+......
+∗ installed ott.dev
+Done.
+```
+
 ## Docker Image
 
 There is also a Docker image prebuilt with Coq support. Please execute the following command to download the image and run a container:
@@ -53,4 +63,4 @@ $ docker run -it yzyzsun/lambda-iu
 | Soundness of call site rewriting | Theorem 5   | `Soundness.v`   | `Lemma pmatch_sound`  |
 | Soundness of elaboration         | Theorem 6   | `Soundness.v`   | `Theorem elab_sound`  |
 
-Theorems 3&4 restate the type-soundness results from Chapter 5 of Rehman's PhD thesis, though with extensions for null and single-field records. The extended proofs can be found at <https://github.com/baberrehman/phd-thesis-artifact>.
+Theorems 3&4 restate the type-soundness results from Chapter 5 of Rehman's PhD thesis, though with extensions for null and single-field records. The extended proofs can be found at <https://github.com/baberrehman/phd-thesis-artifact/tree/null-and-records>.
