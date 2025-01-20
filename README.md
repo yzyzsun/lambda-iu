@@ -28,10 +28,9 @@ COQC theories/Soundness.v
 If you want to build the proofs from scratch (e.g. you modified `lambda-iu.ott` or ran `make clean`), you need to install [Ott](https://github.com/ott-lang/ott) as well. The easiest way to install Ott is also via opam:
 
 ```
-$ opam repo add coq-extra-dev https://coq.inria.fr/opam/extra-dev
 $ opam install ott
 ......
-∗ installed ott.dev
+installed ott.0.34
 Done.
 ```
 

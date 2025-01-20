@@ -11,7 +11,7 @@ CoqMakefile: _CoqProject
 	coq_makefile -f _CoqProject -o CoqMakefile
 
 clean:
-	make -f CoqMakefile clean
+	make -f CoqMakefile cleanall
 	rm -f CoqMakefile CoqMakefile.conf
 	rm -f $(OTT_DST)
 
