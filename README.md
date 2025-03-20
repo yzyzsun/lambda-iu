@@ -9,8 +9,8 @@ The source calculus Uᴀᴇɴᴀ supports first-class named and optional argumen
 The proofs are continuously tested against Coq 8.17 - 8.20. The easiest way to install a specific version of Coq is via [opam](https://opam.ocaml.org/doc/Install.html):
 
 ```
-$ opam pin add coq 8.20.0
-coq is now pinned to version 8.20.0
+$ opam pin add coq 8.20.1
+coq is now pinned to version 8.20.1
 ......
 ```
 
@@ -34,14 +34,6 @@ installed ott.0.34
 Done.
 ```
 
-## Docker Image
-
-There is also a Docker image prebuilt with Coq support. Please execute the following command to download the image and run a container:
-
-```
-$ docker run -it yzyzsun/lambda-iu
-```
-
 ## Proof Correspondence
 
 | Definition / Theorem             | Paper       | Coq File        | Coq Name              |
@@ -63,3 +55,13 @@ $ docker run -it yzyzsun/lambda-iu
 | Soundness of elaboration         | Theorem 6   | `Soundness.v`   | `Theorem elab_sound`  |
 
 Theorems 3&4 restate the type-soundness results from Chapter 5 of Rehman's PhD thesis, though with extensions for null and single-field records. The extended proofs can be found at <https://github.com/baberrehman/phd-thesis-artifact/tree/null-and-records>.
+
+## Docker Image
+
+There is also a Docker image prebuilt with Coq support. Please execute the following command to download the image and run a container:
+
+```
+$ docker run -it yzyzsun/lambda-iu
+```
+
+In the container, there are two subdirectories: `Section4.1` contains the extended artifact of Rehman's PhD thesis, and `Section4.2` corresponds to this repository. Simply execute `make` in either directory to build the proofs.
